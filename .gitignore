@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Production and Build artifacts
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Python artifacts (for backend phases)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Model checkpoints and weights (always local, never committed)
+models/
+services/models/
+*.vrm
+*.onnx
+*.bin
+
+# Local app data & browser automation profiles
+.aura/
+browser_profile/
+
+# Environment & logs
+.env
+.env.local
+*.log
+
+# OS files
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store

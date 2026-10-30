@@ -1,0 +1,15 @@
+{
+  "name": "aura-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AURA — Autonomous Utility, Reasoning and Automation",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "desktop": "npm --prefix apps/desktop run dev",
+    "desktop:build": "npm --prefix apps/desktop run build",
+    "desktop:lint": "npm --prefix apps/desktop run lint",
+    "desktop:test": "npm --prefix apps/desktop test"
+  }
+}

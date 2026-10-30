@@ -1,0 +1,29 @@
+appId: com.aura.desktop
+productName: AURA
+copyright: Copyright © 2026 AURA Team
+electronVersion: 34.2.0
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: dir
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AURA
+  perMachine: false
