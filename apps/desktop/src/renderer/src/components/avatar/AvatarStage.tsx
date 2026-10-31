@@ -48,6 +48,13 @@ export const AvatarStage: React.FC = () => {
       label: 'Listening',
       statusText: 'Audio Capture Active • Listening'
     },
+    transcribing: {
+      color: '#f5a623',
+      bgGlow: 'radial-gradient(circle, rgba(245, 166, 35, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      icon: Activity,
+      label: 'Transcribing',
+      statusText: 'Local faster-whisper Speech Recognition Active'
+    },
     thinking: {
       color: '#7f5af0',
       bgGlow: 'radial-gradient(circle, rgba(127, 90, 240, 0.25) 0%, rgba(8, 10, 15, 0) 70%)',
@@ -82,6 +89,13 @@ export const AvatarStage: React.FC = () => {
       icon: ShieldAlert,
       label: 'Confirmation',
       statusText: 'Review Gate Engaged • Approval Required'
+    },
+    cancelled: {
+      color: '#a0aec0',
+      bgGlow: 'radial-gradient(circle, rgba(160, 174, 192, 0.2) 0%, rgba(8, 10, 15, 0) 70%)',
+      icon: Sparkles,
+      label: 'Cancelled',
+      statusText: 'Voice Input Cancelled • Standby'
     },
     error: {
       color: '#e53170',

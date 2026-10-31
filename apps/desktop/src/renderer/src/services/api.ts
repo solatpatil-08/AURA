@@ -63,6 +63,26 @@ export async function checkVoiceStatus(apiBase: string = DEFAULT_API_BASE): Prom
   }
 }
 
+export interface VoiceModelsData {
+  stt_models: Array<{ name: string; path: string; multilingual: boolean; size_mb: number; is_active?: boolean }>
+  tts_voices: Array<{ name: string; model_path: string; config_path?: string; language?: string; sample_rate?: number; quality?: string }>
+  active_stt: string
+  active_tts: string
+}
+
+export async function fetchVoiceModels(apiBase: string = DEFAULT_API_BASE): Promise<VoiceModelsData | null> {
+  try {
+    const res = await fetch(`${apiBase}/api/voice/models`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return null
+    return (await res.json()) as VoiceModelsData
+  } catch {
+    return null
+  }
+}
+
 export async function transcribeAudio(
   audioBlob: Blob,
   filename: string = 'recording.webm',

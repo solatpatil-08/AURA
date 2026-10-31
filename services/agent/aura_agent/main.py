@@ -114,13 +114,13 @@ async def lifespan(app: FastAPI):
     logger.info("AURA Agent service shutting down.")
 
 
-def create_app() -> FastAPI:
+def create_app(lifespan_override=lifespan) -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="AURA Agent Core",
         description="Local-first AI conversation, reasoning, and voice engine",
         version="0.1.0",
-        lifespan=lifespan,
+        lifespan=lifespan_override,
     )
 
     # 1. CORS Configuration (Localhost Electron and dev servers)

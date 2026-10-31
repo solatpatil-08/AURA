@@ -19,6 +19,7 @@ import {
   OrchestratedTask,
   OrchestratedTaskStep,
 } from '../services/api'
+import { cleanTextForSpeech } from '../utils/speechFilter'
 
 interface AuraContextType {
   assistantState: AssistantState
@@ -155,25 +156,19 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const stopSpeech = useCallback(() => {
     if (currentAudioRef.current) {
       currentAudioRef.current.pause()
+      currentAudioRef.current.currentTime = 0
       currentAudioRef.current = null
     }
     setIsSpeaking(false)
-    setAssistantState((prev) => (prev === 'responding' ? 'idle' : prev))
+    setAssistantState((prev) => (prev === 'speaking' || prev === 'responding' ? 'idle' : prev))
   }, [])
 
   const playSynthesizedSpeech = useCallback(
     async (text: string) => {
       if (!settings.voiceOutputEnabled || !text.trim()) return
 
-      // Strip markdown symbols for clean speech synthesis
-      const cleanText = text
-        .replace(/```[\s\S]*?```/g, 'Code block omitted.')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/#+\s+/g, '')
-        .trim()
-
+      // Sanitize AI response: strip reasoning, code blocks, JSON, and formatting
+      const cleanText = cleanTextForSpeech(text)
       if (!cleanText) return
 
       try {
@@ -185,7 +180,7 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         audio.onplay = () => {
           setIsSpeaking(true)
-          setAssistantState('responding')
+          setAssistantState('speaking')
         }
         audio.onended = () => {
           setIsSpeaking(false)
@@ -197,12 +192,14 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setIsSpeaking(false)
           URL.revokeObjectURL(audioUrl)
           currentAudioRef.current = null
+          setAssistantState('idle')
         }
 
         await audio.play()
       } catch {
-        // Gracefully ignore if TTS is unavailable or user navigated away
+        // Gracefully handle if TTS is unavailable or user interrupted
         setIsSpeaking(false)
+        setAssistantState('idle')
       }
     },
     [settings.voiceOutputEnabled, settings.voiceVolume]

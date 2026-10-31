@@ -9,6 +9,7 @@ import {
   Volume2,
   VolumeX,
   Loader2,
+  Square as StopIcon,
 } from 'lucide-react'
 import { useAura } from '../../context/AuraContext'
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder'
@@ -26,11 +27,14 @@ export const ChatInput: React.FC = () => {
     systemStatus,
   } = useAura()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastTranscriptRef = useRef<{ text: string; timestamp: number } | null>(null)
 
   const {
     isRecording,
     isTranscribing,
     recordingDuration,
+    maxDuration,
+    audioLevels,
     permissionError,
     startRecording,
     stopAndTranscribe,
@@ -41,6 +45,7 @@ export const ChatInput: React.FC = () => {
     assistantState === 'thinking' ||
     assistantState === 'responding' ||
     assistantState === 'executing' ||
+    assistantState === 'transcribing' ||
     isTranscribing
 
   // Auto-resize textarea
@@ -51,11 +56,17 @@ export const ChatInput: React.FC = () => {
     }
   }, [input])
 
-  // Sync assistant state when recording begins or ends
+  // Sync assistant state when recording or transcribing begins or ends
   useEffect(() => {
     if (isRecording) {
       setAssistantState('listening')
-    } else if (assistantState === 'listening' && !isRecording && !isTranscribing) {
+    } else if (isTranscribing) {
+      setAssistantState('transcribing')
+    } else if (
+      (assistantState === 'listening' || assistantState === 'transcribing') &&
+      !isRecording &&
+      !isTranscribing
+    ) {
       setAssistantState('idle')
     }
   }, [isRecording, isTranscribing, assistantState, setAssistantState])
@@ -75,14 +86,33 @@ export const ChatInput: React.FC = () => {
       handleSubmit()
     } else if (e.key === 'Escape' && isRecording) {
       e.preventDefault()
-      cancelRecording()
+      handleCancel()
     }
+  }
+
+  const handleCancel = (): void => {
+    cancelRecording()
+    setAssistantState('cancelled')
+    setTimeout(() => {
+      setAssistantState('idle')
+    }, 1000)
   }
 
   const handleMicClick = async (): Promise<void> => {
     if (isRecording) {
       const transcript = await stopAndTranscribe()
       if (transcript) {
+        // Prevent sending duplicate copies of the same transcript within 3 seconds
+        const now = Date.now()
+        if (
+          lastTranscriptRef.current &&
+          lastTranscriptRef.current.text === transcript &&
+          now - lastTranscriptRef.current.timestamp < 3000
+        ) {
+          console.warn('Duplicate voice transcript submission ignored.')
+          return
+        }
+        lastTranscriptRef.current = { text: transcript, timestamp: now }
         sendMessage(transcript, true)
       }
     } else {
@@ -147,47 +177,81 @@ export const ChatInput: React.FC = () => {
         </div>
       )}
 
-      {/* Active Recording State Banner */}
+      {/* Active Recording State Banner with Live Audio Waveform */}
       {isRecording && (
         <div
           style={{
-            padding: '8px 12px',
+            padding: '10px 14px',
             borderRadius: '8px',
             background: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             fontSize: '12px',
             color: '#f87171',
+            boxShadow: '0 0 12px rgba(239, 68, 68, 0.2)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span
               style={{
-                width: '8px',
-                height: '8px',
+                width: '9px',
+                height: '9px',
                 borderRadius: '50%',
                 background: '#ef4444',
                 boxShadow: '0 0 8px #ef4444',
-                animation: 'pulse 1.5s infinite',
+                display: 'inline-block',
+                animation: 'pulse 1.2s infinite',
               }}
             />
             <span>
-              <strong>Recording locally</strong> ({formatDuration(recordingDuration)}) — Click mic to send, or Esc to cancel.
+              <strong>Recording locally</strong> ({formatDuration(recordingDuration)} / {formatDuration(maxDuration)})
             </span>
+
+            {/* Live Audio Frequency Waveform Visualizer */}
+            <div
+              aria-label="Audio Waveform"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                height: '22px',
+                padding: '0 6px',
+                marginLeft: '6px',
+                background: 'rgba(0, 0, 0, 0.25)',
+                borderRadius: '4px',
+              }}
+            >
+              {audioLevels.map((lvl, idx) => {
+                const heightPx = Math.max(3, Math.min(20, Math.round(lvl * 20)))
+                return (
+                  <span
+                    key={idx}
+                    style={{
+                      width: '3px',
+                      height: `${heightPx}px`,
+                      borderRadius: '2px',
+                      background: lvl > 0.4 ? '#ef4444' : lvl > 0.15 ? '#f87171' : 'rgba(248, 113, 113, 0.4)',
+                      transition: 'height 60ms ease',
+                      display: 'inline-block',
+                    }}
+                  />
+                )
+              })}
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              onClick={cancelRecording}
+              onClick={handleCancel}
               style={{
                 background: 'rgba(255, 255, 255, 0.08)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 color: 'var(--text-secondary)',
                 borderRadius: '6px',
-                padding: '3px 8px',
+                padding: '4px 10px',
                 fontSize: '11px',
                 cursor: 'pointer',
               }}
@@ -202,7 +266,7 @@ export const ChatInput: React.FC = () => {
                 border: 'none',
                 color: '#fff',
                 borderRadius: '6px',
-                padding: '3px 10px',
+                padding: '4px 12px',
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -220,17 +284,17 @@ export const ChatInput: React.FC = () => {
           style={{
             padding: '8px 12px',
             borderRadius: '8px',
-            background: 'rgba(0, 242, 254, 0.1)',
-            border: '1px solid rgba(0, 242, 254, 0.25)',
+            background: 'rgba(245, 166, 35, 0.12)',
+            border: '1px solid rgba(245, 166, 35, 0.35)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             fontSize: '12px',
-            color: 'var(--accent-cyan)',
+            color: '#f5a623',
           }}
         >
           <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />
-          <span>Transcribing audio on-device using faster-whisper...</span>
+          <span>Transcribing speech locally with faster-whisper...</span>
         </div>
       )}
 
@@ -262,7 +326,7 @@ export const ChatInput: React.FC = () => {
               ? 'Click to stop recording and send'
               : systemStatus.micReady
               ? 'Click to speak to AURA (Push-to-Talk)'
-              : 'Local faster-whisper model not installed. Run setup_voice script.'
+              : 'Local faster-whisper model ready. Click to speak.'
           }
           style={{
             width: '36px',
@@ -304,6 +368,8 @@ export const ChatInput: React.FC = () => {
           placeholder={
             isRecording
               ? 'Listening to speech...'
+              : isTranscribing
+              ? 'Transcribing audio locally...'
               : isBusy
               ? `AURA is ${assistantState}...`
               : `Instruct AURA with ${settings.modelName} (or click Mic to speak)...`
@@ -349,7 +415,7 @@ export const ChatInput: React.FC = () => {
         </button>
       </div>
 
-      {/* Footer Hints, Voice Output & Shortcuts */}
+      {/* Footer Hints, Voice Output & Interruption Controls */}
       <div
         style={{
           display: 'flex',
@@ -398,23 +464,29 @@ export const ChatInput: React.FC = () => {
             <span>Voice {settings.voiceOutputEnabled ? 'On' : 'Muted'}</span>
           </button>
 
-          {/* Stop Speech Button when speaking */}
+          {/* User Interruption: Stop Speaking Button */}
           {isSpeaking && (
             <button
               type="button"
               onClick={stopSpeech}
+              aria-label="Stop Speaking Audio"
               style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: 'rgba(239, 68, 68, 0.18)',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
                 color: '#f87171',
                 cursor: 'pointer',
-                borderRadius: '4px',
-                padding: '2px 6px',
-                fontSize: '10px',
+                borderRadius: '5px',
+                padding: '3px 8px',
+                fontSize: '11px',
                 fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 0 8px rgba(239, 68, 68, 0.3)',
               }}
             >
-              Stop Speaking
+              <StopIcon style={{ width: '10px', height: '10px', fill: 'currentColor' }} />
+              <span>Stop Speaking</span>
             </button>
           )}
         </div>

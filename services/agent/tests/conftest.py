@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 import httpx
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -7,6 +8,79 @@ from aura_agent.main import create_app
 from aura_agent.models.db import Base, DatabaseManager
 from aura_agent.services.history import ConversationHistoryService
 from aura_agent.services.ollama import OllamaClient, OllamaModelNotFoundError, OllamaConnectionError
+
+
+@asynccontextmanager
+async def mock_lifespan(app):
+    """Test-isolated no-op lifespan context manager."""
+    yield
+
+
+class MockSTTService:
+    """Mock Speech-to-Text service for unit testing without loading neural models."""
+
+    def __init__(self, transcript="Mocked transcribed speech.", available=True):
+        self.mock_transcript = transcript
+        self.available = available
+
+    def is_available(self) -> bool:
+        return self.available
+
+    def get_status(self) -> dict:
+        return {
+            "engine": "mock-whisper",
+            "available": self.available,
+            "model": "base",
+            "device": "cpu",
+            "compute_type": "int8",
+            "language": "en",
+            "available_models": ["base", "base.en", "tiny.en"],
+            "error": None if self.available else "Mock STT unavailable",
+        }
+
+    def list_available_models(self) -> list:
+        return [{"name": "base", "path": "models/whisper/base", "multilingual": True, "size_mb": 140.0}]
+
+    async def transcribe(self, audio_data: bytes, filename: str = "audio.wav") -> str:
+        return self.mock_transcript
+
+    async def transcribe_with_metadata(self, audio_data: bytes, filename: str = "audio.wav"):
+        return self.mock_transcript, "en", 1.5
+
+
+class MockTTSService:
+    """Mock Text-to-Speech service for unit testing."""
+
+    def __init__(self, available=True):
+        self.available = available
+
+    def is_available(self) -> bool:
+        return self.available
+
+    def get_status(self) -> dict:
+        return {
+            "engine": "mock-piper",
+            "available": self.available,
+            "model_path": "models/piper/en_US-lessac-medium.onnx",
+            "config_path": "models/piper/en_US-lessac-medium.onnx.json",
+            "use_cuda": False,
+            "voice_count": 1,
+            "available_voices": ["en_US-lessac-medium"],
+            "error": None if self.available else "Mock TTS unavailable",
+        }
+
+    def list_available_voices(self) -> list:
+        return [{"name": "en_US-lessac-medium", "model_path": "models/piper/en_US-lessac-medium.onnx", "language": "en_US"}]
+
+    async def synthesize(self, text: str) -> bytes:
+        import io, wave
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(22050)
+            wav.writeframes(b"\x00\x00" * 100)
+        return buf.getvalue()
 
 
 class MockOllamaClient:
@@ -90,13 +164,15 @@ async def app_instance(in_memory_db, mock_workspace):
     from aura_agent.services.memory import MemoryService
     from aura_agent.services.orchestrator import TaskOrchestrator
 
-    app = create_app()
+    app = create_app(lifespan_override=mock_lifespan)
 
     # Override state
     ollama_mock = MockOllamaClient(models=["qwen3.5:4b"])
     history_svc = ConversationHistoryService(in_memory_db)
     audit_logger = AuditLogger(in_memory_db)
     memory_svc = MemoryService(in_memory_db)
+    stt_svc = MockSTTService()
+    tts_svc = MockTTSService()
     tool_reg = create_default_registry(
         workspace_root=str(mock_workspace),
         notes_dir=str(mock_workspace / "notes"),
@@ -121,6 +197,8 @@ async def app_instance(in_memory_db, mock_workspace):
     app.state.agent_loop = agent_loop
     app.state.memory_service = memory_svc
     app.state.orchestrator = orchestrator
+    app.state.stt_service = stt_svc
+    app.state.tts_service = tts_svc
 
     return app
 

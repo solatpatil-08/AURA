@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAura } from '../../context/AuraContext'
+import { fetchVoiceModels, VoiceModelsData } from '../../services/api'
 import {
   Settings,
   Cpu,
@@ -15,6 +16,13 @@ import {
 
 export const SettingsScreen: React.FC = () => {
   const { settings, updateSettings, clearMessages } = useAura()
+  const [voiceModels, setVoiceModels] = useState<VoiceModelsData | null>(null)
+
+  useEffect(() => {
+    fetchVoiceModels().then((data) => {
+      if (data) setVoiceModels(data)
+    })
+  }, [])
 
   return (
     <section
@@ -120,6 +128,24 @@ export const SettingsScreen: React.FC = () => {
               }}
             />
           </div>
+
+          {/* Detected Models Diagnostic Bar */}
+          {voiceModels && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Local STT Models:</span>
+                <strong style={{ color: 'var(--accent-cyan)' }}>
+                  {(voiceModels.stt_models || []).map((m) => m.name).join(', ') || 'None found'}
+                </strong>
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Local Piper Voices:</span>
+                <strong style={{ color: 'var(--accent-cyan)' }}>
+                  {(voiceModels.tts_voices || []).map((v) => v.name).join(', ') || 'None found'}
+                </strong>
+              </div>
+            </div>
+          )}
 
           {/* STT Language */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

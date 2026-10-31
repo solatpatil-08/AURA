@@ -1,15 +1,18 @@
 import logging
+from typing import Any, Dict
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
 from aura_agent.config import settings
 from aura_agent.models.schemas import SynthesizeRequest, TranscribeResponse, VoiceStatusResponse
 from aura_agent.services.stt import (
     BaseSTTService,
+    FasterWhisperSTT,
     STTError,
     STTInvalidAudioError,
     STTModelNotFoundError,
 )
 from aura_agent.services.tts import (
     BaseTTSService,
+    PiperTTSService,
     TTSError,
     TTSInvalidTextError,
     TTSModelNotFoundError,
@@ -35,6 +38,23 @@ async def get_voice_status(request: Request) -> VoiceStatusResponse:
     )
 
 
+@router.get("/models")
+async def get_voice_models(request: Request) -> Dict[str, Any]:
+    """List locally installed STT and TTS models."""
+    stt_service: BaseSTTService = getattr(request.app.state, "stt_service", None)
+    tts_service: BaseTTSService = getattr(request.app.state, "tts_service", None)
+
+    stt_models = stt_service.list_available_models() if hasattr(stt_service, "list_available_models") else []
+    tts_voices = tts_service.list_available_voices() if hasattr(tts_service, "list_available_voices") else []
+
+    return {
+        "stt_models": stt_models,
+        "tts_voices": tts_voices,
+        "active_stt": settings.whisper_model_size,
+        "active_tts": settings.piper_voice_name,
+    }
+
+
 @router.post("/transcribe", response_model=TranscribeResponse)
 async def transcribe_audio(
     request: Request,
@@ -43,8 +63,8 @@ async def transcribe_audio(
     """Transcribe user-recorded speech audio locally using faster-whisper.
 
     Guarantees:
-    - Local processing with zero external cloud API calls.
-    - Temporary memory buffering; recordings are not saved to disk unless requested.
+    - 100% on-device local processing with zero external cloud API calls.
+    - Temporary memory buffering; recordings are cleaned up immediately after inference.
     """
     stt_service: BaseSTTService = getattr(request.app.state, "stt_service", None)
     if not stt_service:
@@ -71,11 +91,21 @@ async def transcribe_audio(
         )
 
     if not audio_bytes or len(audio_bytes) < 100:
-        return TranscribeResponse(text="", language=settings.stt_language)
+        return TranscribeResponse(text="", language=settings.stt_language or "en", duration_seconds=0.0)
 
     try:
-        transcript = await stt_service.transcribe(audio_bytes, filename=file.filename or "recording.wav")
-        return TranscribeResponse(text=transcript, language=settings.stt_language)
+        if hasattr(stt_service, "transcribe_with_metadata"):
+            transcript, detected_lang, duration = await stt_service.transcribe_with_metadata(
+                audio_bytes, filename=file.filename or "recording.wav"
+            )
+            return TranscribeResponse(
+                text=transcript,
+                language=detected_lang or settings.stt_language or "en",
+                duration_seconds=duration,
+            )
+        else:
+            transcript = await stt_service.transcribe(audio_bytes, filename=file.filename or "recording.wav")
+            return TranscribeResponse(text=transcript, language=settings.stt_language or "en")
     except STTModelNotFoundError as e:
         logger.warning("STT Model missing: %s", e)
         raise HTTPException(
@@ -105,6 +135,7 @@ async def synthesize_speech(
 
     Guarantees:
     - Generated on-device with zero cloud AI dependencies.
+    - Strips model reasoning, code blocks, and tool JSON automatically.
     - Returns standard audio/wav binary stream ready for desktop playback.
     """
     tts_service: BaseTTSService = getattr(request.app.state, "tts_service", None)
@@ -131,6 +162,8 @@ async def synthesize_speech(
             detail=str(e),
         ) from e
     except TTSInvalidTextError as e:
+        # If text filtered to empty (e.g. was only <think>...</think> or JSON), return empty WAV or 204
+        logger.info("Text was empty after speech filtering: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),

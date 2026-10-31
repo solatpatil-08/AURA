@@ -8,7 +8,9 @@ import {
   Terminal,
   ShieldAlert,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  Activity,
+  XCircle
 } from 'lucide-react'
 import { useAura } from '../../context/AuraContext'
 
@@ -34,6 +36,13 @@ const stateConfig: Record<
     color: '#2cb67d',
     bg: 'rgba(44, 182, 125, 0.12)',
     glow: '0 0 12px rgba(44, 182, 125, 0.4)'
+  },
+  transcribing: {
+    label: 'Transcribing',
+    icon: Activity,
+    color: '#f5a623',
+    bg: 'rgba(245, 166, 35, 0.15)',
+    glow: '0 0 12px rgba(245, 166, 35, 0.4)'
   },
   thinking: {
     label: 'Thinking',
@@ -69,6 +78,13 @@ const stateConfig: Record<
     color: '#ffd166',
     bg: 'rgba(255, 209, 102, 0.15)',
     glow: '0 0 14px rgba(255, 209, 102, 0.5)'
+  },
+  cancelled: {
+    label: 'Cancelled',
+    icon: XCircle,
+    color: '#a0aec0',
+    bg: 'rgba(160, 174, 192, 0.15)',
+    glow: '0 0 10px rgba(160, 174, 192, 0.3)'
   },
   error: {
     label: 'System Error',

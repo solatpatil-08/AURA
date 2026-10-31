@@ -1,11 +1,13 @@
 export type AssistantState =
   | 'idle'
   | 'listening'
+  | 'transcribing'
   | 'thinking'
   | 'responding'
   | 'speaking'
   | 'executing'
   | 'waiting_confirmation'
+  | 'cancelled'
   | 'error'
 
 export interface Message {

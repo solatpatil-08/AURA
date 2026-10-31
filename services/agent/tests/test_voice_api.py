@@ -1,8 +1,9 @@
 import io
 import pytest
+from contextlib import asynccontextmanager
 from httpx import ASGITransport, AsyncClient
 from unittest.mock import AsyncMock, MagicMock
-from aura_agent.main import app
+from aura_agent.main import create_app
 from aura_agent.services.stt import (
     BaseSTTService,
     STTInvalidAudioError,
@@ -14,6 +15,18 @@ from aura_agent.services.tts import (
 )
 
 
+@asynccontextmanager
+async def mock_lifespan(app):
+    """No-op lifespan for fast isolated unit tests."""
+    yield
+
+
+@pytest.fixture
+def app():
+    """Create test application isolated from production lifespan."""
+    return create_app(lifespan_override=mock_lifespan)
+
+
 @pytest.fixture
 def mock_stt_service():
     service = MagicMock(spec=BaseSTTService)
@@ -21,11 +34,17 @@ def mock_stt_service():
     service.get_status.return_value = {
         "engine": "faster-whisper",
         "available": True,
-        "model": "base.en",
+        "model": "base",
         "device": "cpu",
         "error": None,
     }
+    service.list_available_models.return_value = [
+        {"name": "base", "path": "models/whisper/base", "multilingual": True, "size_mb": 140.0}
+    ]
     service.transcribe = AsyncMock(return_value="What is the active project architecture?")
+    service.transcribe_with_metadata = AsyncMock(
+        return_value=("What is the active project architecture?", "en", 1.8)
+    )
     return service
 
 
@@ -39,6 +58,9 @@ def mock_tts_service():
         "model_path": "models/piper/en_US-lessac-medium.onnx",
         "error": None,
     }
+    service.list_available_voices.return_value = [
+        {"name": "en_US-lessac-medium", "model_path": "models/piper/en_US-lessac-medium.onnx", "language": "en_US"}
+    ]
     # Return valid dummy WAV bytes
     fake_wav = b"RIFF$" + b"\x00" * 36 + b"WAVEfmt " + b"\x00" * 20 + b"data" + b"\x00" * 200
     service.synthesize = AsyncMock(return_value=fake_wav)
@@ -46,7 +68,7 @@ def mock_tts_service():
 
 
 @pytest.mark.asyncio
-async def test_get_voice_status_endpoint(mock_stt_service, mock_tts_service):
+async def test_get_voice_status_endpoint(app, mock_stt_service, mock_tts_service):
     """Verify GET /api/voice/status returns engine diagnostic payload."""
     app.state.stt_service = mock_stt_service
     app.state.tts_service = mock_tts_service
@@ -62,7 +84,24 @@ async def test_get_voice_status_endpoint(mock_stt_service, mock_tts_service):
 
 
 @pytest.mark.asyncio
-async def test_transcribe_endpoint_success(mock_stt_service):
+async def test_get_voice_models_endpoint(app, mock_stt_service, mock_tts_service):
+    """Verify GET /api/voice/models returns available models list."""
+    app.state.stt_service = mock_stt_service
+    app.state.tts_service = mock_tts_service
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+        resp = await client.get("/api/voice/models")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "stt_models" in data
+        assert "tts_voices" in data
+        assert len(data["stt_models"]) >= 1
+        assert len(data["tts_voices"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_transcribe_endpoint_success(app, mock_stt_service):
     """Verify POST /api/voice/transcribe successfully processes uploaded audio."""
     app.state.stt_service = mock_stt_service
 
@@ -76,15 +115,14 @@ async def test_transcribe_endpoint_success(mock_stt_service):
         data = resp.json()
         assert data["text"] == "What is the active project architecture?"
         assert data["language"] == "en"
-        mock_stt_service.transcribe.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_transcribe_missing_model_error():
+async def test_transcribe_missing_model_error(app):
     """Verify POST /api/voice/transcribe returns 503 when the Whisper model is missing."""
     failing_stt = MagicMock(spec=BaseSTTService)
-    failing_stt.transcribe = AsyncMock(
-        side_effect=STTModelNotFoundError("Whisper model 'base.en' was not found locally.")
+    failing_stt.transcribe_with_metadata = AsyncMock(
+        side_effect=STTModelNotFoundError("Whisper model 'base' was not found locally.")
     )
     app.state.stt_service = failing_stt
 
@@ -98,10 +136,10 @@ async def test_transcribe_missing_model_error():
 
 
 @pytest.mark.asyncio
-async def test_transcribe_corrupt_audio_error():
+async def test_transcribe_corrupt_audio_error(app):
     """Verify POST /api/voice/transcribe returns 400 for corrupt audio format."""
     failing_stt = MagicMock(spec=BaseSTTService)
-    failing_stt.transcribe = AsyncMock(
+    failing_stt.transcribe_with_metadata = AsyncMock(
         side_effect=STTInvalidAudioError("Corrupt audio stream could not be parsed.")
     )
     app.state.stt_service = failing_stt
@@ -116,7 +154,7 @@ async def test_transcribe_corrupt_audio_error():
 
 
 @pytest.mark.asyncio
-async def test_synthesize_endpoint_success(mock_tts_service):
+async def test_synthesize_endpoint_success(app, mock_tts_service):
     """Verify POST /api/voice/synthesize returns WAV audio stream."""
     app.state.tts_service = mock_tts_service
 
@@ -133,7 +171,7 @@ async def test_synthesize_endpoint_success(mock_tts_service):
 
 
 @pytest.mark.asyncio
-async def test_synthesize_missing_voice_error():
+async def test_synthesize_missing_voice_error(app):
     """Verify POST /api/voice/synthesize returns 503 when the Piper model is missing."""
     failing_tts = MagicMock(spec=BaseTTSService)
     failing_tts.synthesize = AsyncMock(
@@ -152,7 +190,7 @@ async def test_synthesize_missing_voice_error():
 
 
 @pytest.mark.asyncio
-async def test_system_status_includes_voice(mock_stt_service, mock_tts_service):
+async def test_system_status_includes_voice(app, mock_stt_service, mock_tts_service):
     """Verify GET /api/system/status response includes voice subsystem status."""
     app.state.stt_service = mock_stt_service
     app.state.tts_service = mock_tts_service

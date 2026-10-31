@@ -18,11 +18,13 @@ export interface CharacterControllerOptions {
 const STATE_PALETTES: Record<AssistantState, { primary: number; glow: number; ambientIntensity: number }> = {
   idle: { primary: 0x00f2fe, glow: 0x00c4cc, ambientIntensity: 0.9 },
   listening: { primary: 0x2cb67d, glow: 0x1f9463, ambientIntensity: 1.0 },
+  transcribing: { primary: 0xf5a623, glow: 0xd98218, ambientIntensity: 1.1 },
   thinking: { primary: 0x7f5af0, glow: 0x643fe3, ambientIntensity: 1.1 },
   responding: { primary: 0x4facfe, glow: 0x00f2fe, ambientIntensity: 1.1 },
   speaking: { primary: 0x4facfe, glow: 0x00f2fe, ambientIntensity: 1.1 },
   executing: { primary: 0xff8906, glow: 0xe57800, ambientIntensity: 1.0 },
   waiting_confirmation: { primary: 0xffd166, glow: 0xf4b942, ambientIntensity: 1.0 },
+  cancelled: { primary: 0xa0aec0, glow: 0x718096, ambientIntensity: 0.8 },
   error: { primary: 0xe53170, glow: 0xc42058, ambientIntensity: 1.2 }
 }
 

@@ -28,16 +28,19 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///aura_conversations.db"
 
     # Local Speech Recognition (faster-whisper)
-    whisper_model_size: str = "base.en"
+    whisper_model_size: str = "base"
     whisper_model_dir: Optional[str] = None
     whisper_device: str = "cpu"
     whisper_compute_type: str = "int8"
-    stt_language: str = "en"
+    stt_language: Optional[str] = None
+    max_recording_seconds: int = 60
 
     # Local Text-to-Speech (Piper)
     piper_model_path: Optional[str] = None
     piper_config_path: Optional[str] = None
+    piper_voice_name: str = "en_US-lessac-medium"
     piper_use_cuda: bool = False
+    voice_clean_speech: bool = True
 
     # General voice feature flag
     voice_enabled: bool = True
