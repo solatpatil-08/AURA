@@ -109,13 +109,21 @@ export const AvatarStage: React.FC = () => {
   const currentVisual = stateDetails[assistantState] || stateDetails.idle
   const StatusIcon = currentVisual.icon
 
-  // Select local VRM file using native Electron dialog
+  // Select local VRM file using native Electron dialog and store in userData
   const handleSelectVrm = async (): Promise<void> => {
     if (typeof window !== 'undefined' && window.auraAPI?.selectVrmFile) {
       try {
         const filePath = await window.auraAPI.selectVrmFile()
         if (filePath) {
-          updateSettings({ vrmModelPath: filePath })
+          let finalPath = filePath
+          if (window.auraAPI.saveVrmCharacter) {
+            try {
+              finalPath = await window.auraAPI.saveVrmCharacter(filePath)
+            } catch (saveErr) {
+              console.warn('Failed to copy VRM to local user data folder:', saveErr)
+            }
+          }
+          updateSettings({ vrmModelPath: finalPath })
         }
       } catch (err) {
         console.error('Failed to open VRM file dialog:', err)
@@ -123,7 +131,14 @@ export const AvatarStage: React.FC = () => {
     }
   }
 
-  const handleResetFallback = (): void => {
+  const handleResetFallback = async (): Promise<void> => {
+    if (typeof window !== 'undefined' && window.auraAPI?.resetVrmCharacter) {
+      try {
+        await window.auraAPI.resetVrmCharacter()
+      } catch (err) {
+        console.warn('Failed to reset stored VRM character:', err)
+      }
+    }
     updateSettings({ vrmModelPath: '' })
   }
 
@@ -218,13 +233,36 @@ export const AvatarStage: React.FC = () => {
               </span>
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Hardware WebGL • Three.js v0.186 & @pixiv/three-vrm v3.5
+              {telemetry.mode === 'vrm' && telemetry.vrmMeta?.author
+                ? `Author: ${telemetry.vrmMeta.author} • Hardware WebGL`
+                : 'Hardware WebGL • Three.js v0.186 & @pixiv/three-vrm v3.5'}
             </div>
           </div>
         </div>
 
         {/* Telemetry Stats & Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Expressions Count Pill for VRM */}
+          {telemetry.mode === 'vrm' && typeof telemetry.expressionsCount === 'number' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                color: 'var(--text-muted)',
+                fontSize: '11px',
+                fontFamily: 'monospace'
+              }}
+              title="Verified expression morph targets on loaded VRM character"
+            >
+              <span>{telemetry.expressionsCount} Expressions</span>
+            </div>
+          )}
+
           {/* Audio Viseme Sync Pill */}
           {isSpeaking && (
             <div
@@ -242,7 +280,11 @@ export const AvatarStage: React.FC = () => {
               }}
             >
               <Volume2 className="animate-pulse" style={{ width: '13px', height: '13px' }} />
-              <span>Speech Synced</span>
+              <span>
+                {telemetry.audioAmplitude !== undefined && telemetry.audioAmplitude > 0
+                  ? `Lip-Sync (${Math.round(telemetry.audioAmplitude * 100)}%)`
+                  : 'Speech Synced'}
+              </span>
             </div>
           )}
 

@@ -13,6 +13,9 @@ export interface IAuraDesktopBridge {
     micReady: boolean
   }>
   selectVrmFile: () => Promise<string | null>
+  saveVrmCharacter: (sourcePath: string) => Promise<string>
+  getStoredVrmCharacter: () => Promise<string | null>
+  resetVrmCharacter: () => Promise<void>
   loadVrmBinary: (filePath: string) => Promise<ArrayBuffer>
 }
 
@@ -31,6 +34,15 @@ const auraAPI: IAuraDesktopBridge = {
   },
   selectVrmFile: async () => {
     return ipcRenderer.invoke('vrm:select-file')
+  },
+  saveVrmCharacter: async (sourcePath: string) => {
+    return ipcRenderer.invoke('vrm:save-character', sourcePath)
+  },
+  getStoredVrmCharacter: async () => {
+    return ipcRenderer.invoke('vrm:get-stored-character')
+  },
+  resetVrmCharacter: async () => {
+    return ipcRenderer.invoke('vrm:reset-character')
   },
   loadVrmBinary: async (filePath: string) => {
     return ipcRenderer.invoke('vrm:load-binary', filePath)

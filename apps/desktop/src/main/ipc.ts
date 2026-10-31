@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app } from 'electron'
 import { promises as fs, existsSync } from 'fs'
 import path from 'path'
 
@@ -85,5 +85,64 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
     const fileBuffer = await fs.readFile(resolved)
     return fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength)
+  })
+
+  // Store selected character model into designated user-data directory
+  ipcMain.handle('vrm:save-character', async (_event, sourcePath: string): Promise<string> => {
+    if (!sourcePath || typeof sourcePath !== 'string') {
+      throw new Error('Invalid source file path provided')
+    }
+    const cleanSource = sourcePath.trim().replace(/^file:\/\/\/?/, '')
+    const resolvedSource = path.resolve(cleanSource)
+    if (!existsSync(resolvedSource)) {
+      throw new Error(`Source VRM file not found: ${resolvedSource}`)
+    }
+
+    const userDataDir = app.getPath('userData')
+    const targetDir = path.join(userDataDir, 'characters')
+    await fs.mkdir(targetDir, { recursive: true })
+
+    const safeBaseName = path.basename(resolvedSource).replace(/[^a-zA-Z0-9._-]/g, '_')
+    const destPath = path.join(targetDir, safeBaseName)
+
+    if (path.resolve(destPath) !== resolvedSource) {
+      await fs.copyFile(resolvedSource, destPath)
+    }
+
+    return destPath
+  })
+
+  // Retrieve existing stored character from local user-data directory
+  ipcMain.handle('vrm:get-stored-character', async (): Promise<string | null> => {
+    const userDataDir = app.getPath('userData')
+    const targetDir = path.join(userDataDir, 'characters')
+    if (!existsSync(targetDir)) return null
+
+    try {
+      const files = await fs.readdir(targetDir)
+      const vrmFiles = files.filter((f) => f.toLowerCase().endsWith('.vrm'))
+      if (vrmFiles.length === 0) return null
+      return path.join(targetDir, vrmFiles[0])
+    } catch {
+      return null
+    }
+  })
+
+  // Reset character selection back to procedural fallback
+  ipcMain.handle('vrm:reset-character', async (): Promise<void> => {
+    const userDataDir = app.getPath('userData')
+    const targetDir = path.join(userDataDir, 'characters')
+    if (existsSync(targetDir)) {
+      try {
+        const files = await fs.readdir(targetDir)
+        for (const file of files) {
+          if (file.toLowerCase().endsWith('.vrm')) {
+            await fs.unlink(path.join(targetDir, file)).catch(() => {})
+          }
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   })
 }

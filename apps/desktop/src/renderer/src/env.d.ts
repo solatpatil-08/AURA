@@ -10,6 +10,9 @@ export interface IAuraDesktopBridge {
     micReady: boolean
   }>
   selectVrmFile?: () => Promise<string | null>
+  saveVrmCharacter?: (sourcePath: string) => Promise<string>
+  getStoredVrmCharacter?: () => Promise<string | null>
+  resetVrmCharacter?: () => Promise<void>
   loadVrmBinary?: (filePath: string) => Promise<ArrayBuffer>
 }
 

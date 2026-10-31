@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { CharacterController } from './CharacterController'
 import { AssistantState, CharacterTelemetry } from '../../types'
+import { useAura } from '../../context/AuraContext'
 import { AlertCircle, Loader2 } from 'lucide-react'
 
 interface CharacterCanvasProps {
   assistantState: AssistantState
   isSpeaking: boolean
   vrmModelPath?: string
+  speechAnalyser?: AnalyserNode | null
   onTelemetry?: (telemetry: Partial<CharacterTelemetry>) => void
 }
 
@@ -14,11 +16,21 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
   assistantState,
   isSpeaking,
   vrmModelPath,
+  speechAnalyser,
   onTelemetry
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const controllerRef = useRef<CharacterController | null>(null)
+
+  let auraAnalyser: AnalyserNode | null = null
+  try {
+    const aura = useAura()
+    auraAnalyser = aura.speechAnalyser
+  } catch {
+    // Rendered outside AuraProvider (e.g. isolated test environments)
+  }
+  const activeAnalyser = speechAnalyser !== undefined ? speechAnalyser : auraAnalyser
 
   const [webglError, setWebglError] = useState<string | null>(null)
   const [isLoadingModel, setIsLoadingModel] = useState<boolean>(false)
@@ -99,6 +111,13 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
       controllerRef.current.setSpeaking(isSpeaking)
     }
   }, [isSpeaking])
+
+  // Sync Web Audio Analyser for Lip-Sync Visemes
+  useEffect(() => {
+    if (controllerRef.current) {
+      controllerRef.current.setAudioAnalyser(activeAnalyser || null)
+    }
+  }, [activeAnalyser])
 
   // Handle VRM Model Path Changes
   useEffect(() => {

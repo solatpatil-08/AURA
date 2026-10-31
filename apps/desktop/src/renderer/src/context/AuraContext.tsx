@@ -44,6 +44,7 @@ interface AuraContextType {
   toggleTaskPanel: () => void
   isSpeaking: boolean
   stopSpeech: () => void
+  speechAnalyser: AnalyserNode | null
   refreshTasks: () => Promise<void>
   cancelTaskById: (id: string, reason?: string) => Promise<void>
   confirmTaskById: (id: string, approved: boolean, guidance?: string) => Promise<void>
@@ -141,7 +142,10 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isTaskPanelOpen, setIsTaskPanelOpen] = useState<boolean>(true)
   const [pendingConfirmation, setPendingConfirmation] = useState<Message['toolCallProposal'] | null>(null)
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false)
+  const [speechAnalyser, setSpeechAnalyser] = useState<AnalyserNode | null>(null)
 
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
@@ -154,11 +158,21 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   })
 
   const stopSpeech = useCallback(() => {
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop()
+        currentSourceRef.current.disconnect()
+      } catch {
+        // Ignore errors if source was already stopped
+      }
+      currentSourceRef.current = null
+    }
     if (currentAudioRef.current) {
       currentAudioRef.current.pause()
       currentAudioRef.current.currentTime = 0
       currentAudioRef.current = null
     }
+    setSpeechAnalyser(null)
     setIsSpeaking(false)
     setAssistantState((prev) => (prev === 'speaking' || prev === 'responding' ? 'idle' : prev))
   }, [])
@@ -173,6 +187,69 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       try {
         const audioBlob = await synthesizeSpeech(cleanText)
+
+        // Web Audio API with AnalyserNode for real-time lip-sync
+        const AudioCtxClass =
+          typeof window !== 'undefined'
+            ? window.AudioContext ||
+              (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+            : null
+
+        if (AudioCtxClass) {
+          try {
+            if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+              audioCtxRef.current = new AudioCtxClass()
+            }
+            const ctx = audioCtxRef.current
+            if (ctx.state === 'suspended') {
+              await ctx.resume()
+            }
+
+            const arrayBuffer = await audioBlob.arrayBuffer()
+            const audioBuffer = await ctx.decodeAudioData(arrayBuffer)
+
+            if (currentSourceRef.current) {
+              try {
+                currentSourceRef.current.stop()
+                currentSourceRef.current.disconnect()
+              } catch {
+                // Ignore disconnect error
+              }
+            }
+
+            const source = ctx.createBufferSource()
+            source.buffer = audioBuffer
+
+            const analyser = ctx.createAnalyser()
+            analyser.fftSize = 512
+            analyser.smoothingTimeConstant = 0.4
+
+            const gainNode = ctx.createGain()
+            gainNode.gain.value = Math.max(0, Math.min(1, settings.voiceVolume))
+
+            source.connect(analyser)
+            analyser.connect(gainNode)
+            gainNode.connect(ctx.destination)
+
+            currentSourceRef.current = source
+            setSpeechAnalyser(analyser)
+            setIsSpeaking(true)
+            setAssistantState('speaking')
+
+            source.onended = () => {
+              currentSourceRef.current = null
+              setSpeechAnalyser(null)
+              setIsSpeaking(false)
+              setAssistantState('idle')
+            }
+
+            source.start(0)
+            return
+          } catch {
+            // If Web Audio API decode fails in certain environments, fall back to standard HTMLAudioElement
+          }
+        }
+
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         audio.volume = Math.max(0, Math.min(1, settings.voiceVolume))
@@ -327,6 +404,20 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const interval = setInterval(fetchStatus, 4000)
     return () => clearInterval(interval)
   }, [settings.modelName, refreshTasks])
+
+  // Load existing user character from local storage if available
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.auraAPI?.getStoredVrmCharacter) {
+      window.auraAPI
+        .getStoredVrmCharacter()
+        .then((storedPath) => {
+          if (storedPath) {
+            setSettings((prev) => (prev.vrmModelPath ? prev : { ...prev, vrmModelPath: storedPath }))
+          }
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   const sendMessage = (content: string, isVoice: boolean = false): void => {
     if (!content.trim()) return
@@ -553,6 +644,7 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toggleTaskPanel,
         isSpeaking,
         stopSpeech,
+        speechAnalyser,
         refreshTasks,
         cancelTaskById,
         confirmTaskById,

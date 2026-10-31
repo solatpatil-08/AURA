@@ -153,6 +153,15 @@ export interface CharacterTelemetry {
   isSpeaking: boolean
   fps: number
   error: string | null
+  expressionsCount?: number
+  availableExpressions?: string[]
+  vrmMeta?: {
+    metaVersion?: string
+    author?: string
+    title?: string
+  }
+  lipSyncMode?: string
+  audioAmplitude?: number
 }
 
 export interface MemoryItem {

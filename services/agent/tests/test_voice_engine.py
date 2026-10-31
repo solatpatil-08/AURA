@@ -87,3 +87,4 @@ async def test_end_to_end_local_voice_loop():
     normalized = transcript.lower()
     assert "autonomous" in normalized or "automation" in normalized or "reasoning" in normalized
     assert duration > 0.5
+
