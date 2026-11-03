@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { CharacterController, GraphicsErrorCategory } from './CharacterController'
+import { CssAvatarFallback } from './CssAvatarFallback'
 import { AssistantState, CharacterTelemetry } from '../../types'
 import { useAura } from '../../context/AuraContext'
 import { AlertCircle, Loader2 } from 'lucide-react'
@@ -271,46 +272,45 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
         </div>
       )}
 
-      {/* WebGL Hardware Failure Fallback */}
+      {/* WebGL Hardware Failure Fallback: Render Real CSS/SVG Compatibility Avatar (Phase 7) */}
       {webglError && (
         <div
           style={{
-            padding: '24px',
-            textAlign: 'center',
-            maxWidth: '420px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            borderRadius: '12px',
-            border: '1px solid rgba(229, 49, 112, 0.3)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 15
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 15,
+            background: '#07090e'
           }}
         >
-          <AlertCircle style={{ width: '36px', height: '36px', color: '#e53170', margin: '0 auto 12px' }} />
-          <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-            WebGL Acceleration Unavailable
-          </h4>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '14px' }}>
-            {webglError.message}
-          </p>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-            <button
-              onClick={() => {
-                setWebglError(null)
-                setRetryCount((c) => c + 1)
-              }}
-              style={{
-                background: 'rgba(0, 242, 254, 0.15)',
-                border: '1px solid rgba(0, 242, 254, 0.4)',
-                color: '#00f2fe',
-                padding: '6px 14px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              Retry WebGL
-            </button>
+          <CssAvatarFallback
+            assistantState={assistantState}
+            isSpeaking={isSpeaking}
+            onRetryWebGL={() => {
+              setWebglError(null)
+              setRetryCount((c) => c + 1)
+            }}
+          />
+          <div
+            style={{
+              padding: '12px 18px',
+              textAlign: 'center',
+              maxWidth: '440px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              borderRadius: '8px',
+              border: '1px solid rgba(229, 49, 112, 0.3)',
+              marginTop: '10px'
+            }}
+          >
+            <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+              WebGL Acceleration Unavailable
+            </h4>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+              {webglError.message}
+            </p>
           </div>
         </div>
       )}

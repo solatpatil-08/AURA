@@ -5,6 +5,11 @@ import {
   patchWebGLPrototypesSafely,
   verifyWebGL2Support
 } from '../src/renderer/src/components/avatar/CharacterController'
+import {
+  runWebGL2Diagnostic,
+  runIsolatedRenderingPipeline
+} from '../src/renderer/src/components/avatar/WebGLDiagnostic'
+import { CssAvatarFallback } from '../src/renderer/src/components/avatar/CssAvatarFallback'
 import { AvatarStage } from '../src/renderer/src/components/avatar/AvatarStage'
 import { AuraProvider } from '../src/renderer/src/context/AuraContext'
 import { AssistantState } from '../src/renderer/src/types'
@@ -414,6 +419,97 @@ describe('AURA Avatar Engine 2.0: 3D Character & VRM Animation System', () => {
     it('cancels requestAnimationFrame and disposes all resources cleanly on dispose()', () => {
       const controller = new CharacterController(canvas, { autoAnimate: true })
       expect(() => controller.dispose()).not.toThrow()
+    })
+  })
+
+  describe('Phase 2 & 4: WebGL2 Diagnostics and Isolated 7-Stage Pipeline', () => {
+    it('runs independent WebGL2 capability diagnostic and returns structured parameters', () => {
+      const report = runWebGL2Diagnostic(canvas)
+      expect(report).toBeDefined()
+      expect(report.webglVersion).toBeDefined()
+      expect(report.glRenderer).toBeDefined()
+      expect(report.glVendor).toBeDefined()
+    })
+
+    it('executes 7-stage isolated rendering pipeline (A to G) in exact order without error', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const vrmPath = path.resolve(__dirname, '../../../models/vrm/aura.vrm')
+      let vrmBuffer: ArrayBuffer | undefined = undefined
+      if (fs.existsSync(vrmPath)) {
+        const fileBuffer = fs.readFileSync(vrmPath)
+        vrmBuffer = fileBuffer.buffer.slice(
+          fileBuffer.byteOffset,
+          fileBuffer.byteOffset + fileBuffer.byteLength
+        )
+      }
+
+      const report = await runIsolatedRenderingPipeline(canvas, vrmBuffer)
+      expect(report.stages).toHaveLength(7)
+      expect(report.stages.map((s) => s.stage)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G'])
+      expect(report.allPassed).toBe(true)
+    })
+  })
+
+  describe('Phase 5 & 8: Lifecycle and Health Indicator Integrity', () => {
+    it('does not force context loss during normal dispose() cleanup', () => {
+      let contextLossFired = false
+      canvas.addEventListener('webglcontextlost', () => {
+        contextLossFired = true
+      })
+
+      const controller = new CharacterController(canvas, { autoAnimate: false })
+      controller.dispose()
+
+      expect(contextLossFired).toBe(false)
+    })
+
+    it('reports 0 FPS when rendering is paused or stopped (never hardcoded 60)', () => {
+      let reportedFps = -1
+      const controller = new CharacterController(canvas, {
+        autoAnimate: false,
+        onTelemetry: (t) => {
+          if (typeof t.fps === 'number') reportedFps = t.fps
+        }
+      })
+
+      controller.pause()
+      expect(reportedFps).toBe(0)
+
+      controller.dispose()
+    })
+  })
+
+  describe('Phase 7: Real CSS/SVG Compatibility Fallback Avatar', () => {
+    it('renders animated SVG cybernetic avatar without canvas or Three.js dependencies', () => {
+      render(
+        <CssAvatarFallback
+          assistantState="speaking"
+          isSpeaking={true}
+          errorMessage="WebGL Context Reset"
+        />
+      )
+
+      expect(screen.getByRole('region', { name: /css\/svg compatibility avatar/i })).toBeInTheDocument()
+      expect(screen.getByText(/compatibility avatar \(css\/svg fallback • standby\)/i)).toBeInTheDocument()
+      expect(screen.getByText(/voice output active/i)).toBeInTheDocument()
+      expect(screen.getByText(/webgl context reset/i)).toBeInTheDocument()
+    })
+
+    it('triggers onRetryWebGL callback when Retry 3D WebGL button is clicked', () => {
+      const retryMock = vi.fn()
+      render(
+        <CssAvatarFallback
+          assistantState="idle"
+          isSpeaking={false}
+          onRetryWebGL={retryMock}
+        />
+      )
+
+      const retryBtn = screen.getByRole('button', { name: /retry 3d webgl/i })
+      expect(retryBtn).toBeInTheDocument()
+      fireEvent.click(retryBtn)
+      expect(retryMock).toHaveBeenCalledTimes(1)
     })
   })
 })

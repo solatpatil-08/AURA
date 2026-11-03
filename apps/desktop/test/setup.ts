@@ -15,12 +15,66 @@ vi.mock('three', async (importOriginal) => {
     render = vi.fn()
     dispose = vi.fn()
     forceContextLoss = vi.fn()
+    getContext = vi.fn().mockReturnValue(null)
   }
   return {
     ...actual,
     WebGLRenderer: MockWebGLRenderer
   }
 })
+
+// Mock HTMLCanvasElement.prototype.getContext for headless jsdom WebGL tests
+if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype) {
+  const origGetContext = HTMLCanvasElement.prototype.getContext
+  HTMLCanvasElement.prototype.getContext = function (contextId: string, ...args: any[]) {
+    try {
+      const res = origGetContext.apply(this, [contextId, ...args] as any)
+      if (res) return res
+    } catch {
+      // jsdom throws "Not implemented"
+    }
+    if (contextId === 'webgl2' || contextId === 'webgl' || contextId === 'experimental-webgl') {
+      const mockGl = {
+        canvas: this,
+        isContextLost: () => false,
+        getExtension: vi.fn().mockReturnValue(null),
+        VERSION: 0x1F02,
+        SHADING_LANGUAGE_VERSION: 0x8B8C,
+        VENDOR: 0x1F00,
+        RENDERER: 0x1F01,
+        MAX_TEXTURE_IMAGE_UNITS: 0x8872,
+        MAX_COMBINED_TEXTURE_IMAGE_UNITS: 0x8B4D,
+        MAX_VERTEX_ATTRIBS: 0x8869,
+        MAX_TEXTURE_SIZE: 0x0D33,
+        VERTEX_SHADER: 0x8B31,
+        FRAGMENT_SHADER: 0x8B30,
+        HIGH_FLOAT: 0x8DF2,
+        MEDIUM_FLOAT: 0x8DF1,
+        LOW_FLOAT: 0x8DF0,
+        getParameter: vi.fn((pname: number) => {
+          if (pname === 0x1F02) return 'WebGL 2.0 (Mock Test Context)'
+          if (pname === 0x1F01) return 'Mock NVIDIA GeForce RTX 3050'
+          if (pname === 0x1F00) return 'Mock NVIDIA'
+          if (pname === 0x0D33) return 4096
+          if (pname === 0x8869) return 16
+          return 0
+        }),
+        getShaderPrecisionFormat: vi.fn().mockReturnValue({
+          precision: 23,
+          rangeMin: 127,
+          rangeMax: 127
+        }),
+        getContextAttributes: vi.fn().mockReturnValue({
+          alpha: true,
+          antialias: false,
+          powerPreference: 'high-performance'
+        })
+      }
+      return mockGl as any
+    }
+    return null
+  }
+}
 
 // Mock createImageBitmap for GLTF texture parsing in headless jsdom
 if (typeof window !== 'undefined' && typeof window.createImageBitmap === 'undefined') {

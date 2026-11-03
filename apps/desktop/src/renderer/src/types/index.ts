@@ -144,7 +144,7 @@ export interface AppSettings {
   vrmModelPath?: string
 }
 
-export type CharacterRenderMode = 'procedural' | 'vrm'
+export type CharacterRenderMode = 'procedural' | 'vrm' | 'css_fallback'
 
 export interface CharacterTelemetry {
   mode: CharacterRenderMode
@@ -162,6 +162,13 @@ export interface CharacterTelemetry {
   }
   lipSyncMode?: string
   audioAmplitude?: number
+  // Hardware & Health Metrics (Phase 8)
+  gpuRenderer?: string
+  gpuVendor?: string
+  webgl2Available?: boolean
+  rendererReady?: boolean
+  avatarVisible?: boolean
+  contextLostCount?: number
 }
 
 export interface MemoryItem {

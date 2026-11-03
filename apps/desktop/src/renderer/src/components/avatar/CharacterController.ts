@@ -60,10 +60,15 @@ export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2Verificati
   }
 
   try {
+    // Conservative WebGL2 settings: no MSAA (avoids msaa_is_slow & EGL version mismatch),
+    // high-performance power preference (requests discrete NVIDIA RTX 3050 GPU)
     const gl = canvas.getContext('webgl2', {
       alpha: true,
-      antialias: true,
-      powerPreference: 'default'
+      antialias: false,
+      depth: true,
+      stencil: false,
+      powerPreference: 'high-performance',
+      preserveDrawingBuffer: false
     })
 
     if (!gl) {
@@ -83,8 +88,16 @@ export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2Verificati
     }
 
     const version = gl.getParameter(gl.VERSION)
-    const renderer = gl.getParameter(gl.RENDERER)
-    const vendor = gl.getParameter(gl.VENDOR)
+    let renderer = gl.getParameter(gl.RENDERER)
+    let vendor = gl.getParameter(gl.VENDOR)
+
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info')
+    if (dbg) {
+      const uRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+      if (typeof uRenderer === 'string') renderer = uRenderer
+      const uVendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)
+      if (typeof uVendor === 'string') vendor = uVendor
+    }
 
     return {
       isSupported: true,
@@ -102,6 +115,139 @@ export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2Verificati
 }
 
 /**
+ * Defensive fallback format for getShaderPrecisionFormat
+ */
+const DEFAULT_SHADER_PRECISION = {
+  precision: 23,
+  rangeMin: 127,
+  rangeMax: 127
+}
+
+/**
+ * Defensive parameter map for gl.getParameter
+ */
+function getSafeParameterFallback(pname: number): unknown {
+  switch (pname) {
+    case 0x1F02: // gl.VERSION
+      return 'WebGL 2.0 (OpenGL ES 3.0 Chromium)'
+    case 0x8B8C: // gl.SHADING_LANGUAGE_VERSION
+      return 'WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)'
+    case 0x1F00: // gl.VENDOR
+      return 'WebKit'
+    case 0x1F01: // gl.RENDERER
+      return 'WebKit WebGL'
+    case 0x8872: // gl.MAX_TEXTURE_IMAGE_UNITS
+      return 16
+    case 0x8B4D: // gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS
+      return 32
+    case 0x8869: // gl.MAX_VERTEX_ATTRIBS
+      return 16
+    case 0x0D33: // gl.MAX_TEXTURE_SIZE
+      return 4096
+    case 0x8515: // gl.MAX_CUBE_MAP_TEXTURE_SIZE
+      return 4096
+    case 0x8DF8: // gl.MAX_VERTEX_UNIFORM_VECTORS
+      return 256
+    case 0x8DF9: // gl.MAX_VARYING_VECTORS
+      return 15
+    case 0x8DFA: // gl.MAX_FRAGMENT_UNIFORM_VECTORS
+      return 256
+    case 0x8A2B: // gl.MAX_UNIFORM_BUFFER_BINDINGS
+      return 24
+    case 0x8CE0: // gl.MAX_COLOR_ATTACHMENTS
+      return 8
+    case 0x8D57: // gl.MAX_DRAW_BUFFERS
+      return 8
+    case 0x8824: // gl.MAX_RENDERBUFFER_SIZE
+      return 4096
+    case 0x8D56: // gl.MAX_SAMPLES
+      return 4
+    case 0x8DF0: // gl.SAMPLES
+      return 0
+    case 0x0C10: // gl.SCISSOR_BOX
+      return new Int32Array([0, 0, 1920, 1080])
+    case 0x0BA2: // gl.VIEWPORT
+      return new Int32Array([0, 0, 1920, 1080])
+    default:
+      return null
+  }
+}
+
+/**
+ * Directly wraps a WebGL context instance so that calls to getShaderPrecisionFormat
+ * or getParameter NEVER return null or invalid values that would crash Three.js WebGLCapabilities / WebGLState.
+ */
+export function wrapWebGLContextInstance(gl: any): void {
+  if (!gl || gl.__auraWrapped) return
+
+  // 1. Wrap getShaderPrecisionFormat
+  const origPrecision = gl.getShaderPrecisionFormat ? gl.getShaderPrecisionFormat.bind(gl) : null
+  try {
+    Object.defineProperty(gl, 'getShaderPrecisionFormat', {
+      value: function (shaderType: number, precisionType: number) {
+        try {
+          if (origPrecision) {
+            const res = origPrecision(shaderType, precisionType)
+            if (res && typeof res.precision === 'number' && res.precision > 0) {
+              return res
+            }
+          }
+        } catch {
+          // Fallback
+        }
+        return DEFAULT_SHADER_PRECISION
+      },
+      writable: true,
+      configurable: true
+    })
+  } catch {
+    // If defineProperty is blocked, fallback to direct assignment
+    try {
+      gl.getShaderPrecisionFormat = function () {
+        return DEFAULT_SHADER_PRECISION
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // 2. Wrap getParameter
+  const origGetParameter = gl.getParameter ? gl.getParameter.bind(gl) : null
+  try {
+    Object.defineProperty(gl, 'getParameter', {
+      value: function (pname: number) {
+        try {
+          if (origGetParameter) {
+            const res = origGetParameter(pname)
+            if (res !== null && res !== undefined) {
+              if (
+                pname === 0x1F02 /* VERSION */ ||
+                pname === 0x8B8C /* SHADING_LANGUAGE_VERSION */ ||
+                pname === 0x1F00 /* VENDOR */ ||
+                pname === 0x1F01 /* RENDERER */
+              ) {
+                if (typeof res === 'string' && res.length > 0) return res
+              } else {
+                return res
+              }
+            }
+          }
+        } catch {
+          // Fallback
+        }
+        return getSafeParameterFallback(pname)
+      },
+      writable: true,
+      configurable: true
+    })
+  } catch {
+    // Ignore
+  }
+
+  gl.__auraWrapped = true
+}
+
+/**
  * Defensive patch for Chromium / ANGLE / Windows graphics drivers where WebGL queries
  * may return null or unexpected non-spec values under certain hardware/policy conditions.
  *
@@ -113,103 +259,89 @@ export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2Verificati
 export function patchWebGLPrototypesSafely(): void {
   if (typeof window === 'undefined') return
 
-  const patchProto = (proto: any) => {
-    if (!proto || proto.__auraWebGLPatched) return
-
-    // 1. Safe getShaderPrecisionFormat
-    if (proto.getShaderPrecisionFormat) {
-      const originalPrecision = proto.getShaderPrecisionFormat
-      proto.getShaderPrecisionFormat = function (shaderType: number, precisionType: number) {
+  // 1. Hook HTMLCanvasElement.prototype.getContext to automatically wrap any created context
+  if (typeof HTMLCanvasElement !== 'undefined' && HTMLCanvasElement.prototype) {
+    const canvasProto = HTMLCanvasElement.prototype as any
+    if (!canvasProto.__auraGetContextPatched) {
+      const origGetContext = canvasProto.getContext
+      canvasProto.getContext = function (contextId: string, ...args: any[]) {
+        let ctx: any = null
         try {
-          const res = originalPrecision.call(this, shaderType, precisionType)
-          if (res && typeof res.precision === 'number' && res.precision > 0) {
-            return res
-          }
+          ctx = origGetContext.apply(this, [contextId, ...args])
         } catch {
-          // Fall through to fallback
+          // In test environments or headless, getContext may throw
         }
-        return {
-          precision: precisionType === 0x8DF2 ? 23 : precisionType === 0x8DF1 ? 16 : 8,
-          rangeMin: 127,
-          rangeMax: 127
+        if (ctx && (contextId === 'webgl2' || contextId === 'webgl' || contextId === 'experimental-webgl')) {
+          wrapWebGLContextInstance(ctx)
         }
+        return ctx
       }
+      canvasProto.__auraGetContextPatched = true
     }
-
-    // 2. Safe getParameter
-    if (proto.getParameter) {
-      const originalGetParameter = proto.getParameter
-      proto.getParameter = function (pname: number) {
-        try {
-          const res = originalGetParameter.call(this, pname)
-          if (res !== null && res !== undefined) {
-            // For string parameters, verify non-empty string
-            if (
-              pname === 0x1F02 /* VERSION */ ||
-              pname === 0x8B8C /* SHADING_LANGUAGE_VERSION */ ||
-              pname === 0x1F00 /* VENDOR */ ||
-              pname === 0x1F01 /* RENDERER */
-            ) {
-              if (typeof res === 'string' && res.length > 0) return res
-            } else {
-              return res
-            }
-          }
-        } catch {
-          // Fall through to fallback
-        }
-
-        // Defensive fallbacks for critical Three.js parameters
-        switch (pname) {
-          case 0x1F02: // gl.VERSION
-            return 'WebGL 2.0 (OpenGL ES 3.0 Chromium)'
-          case 0x8B8C: // gl.SHADING_LANGUAGE_VERSION
-            return 'WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)'
-          case 0x1F00: // gl.VENDOR
-            return 'WebKit'
-          case 0x1F01: // gl.RENDERER
-            return 'WebKit WebGL'
-          case 0x8872: // gl.MAX_TEXTURE_IMAGE_UNITS
-            return 16
-          case 0x8B4D: // gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS
-            return 32
-          case 0x8869: // gl.MAX_VERTEX_ATTRIBS
-            return 16
-          case 0x0D33: // gl.MAX_TEXTURE_SIZE
-            return 4096
-          case 0x8515: // gl.MAX_CUBE_MAP_TEXTURE_SIZE
-            return 4096
-          case 0x8DF8: // gl.MAX_VERTEX_UNIFORM_VECTORS
-            return 256
-          case 0x8DF9: // gl.MAX_VARYING_VECTORS
-            return 15
-          case 0x8DFA: // gl.MAX_FRAGMENT_UNIFORM_VECTORS
-            return 256
-          case 0x8A2B: // gl.MAX_UNIFORM_BUFFER_BINDINGS
-            return 24
-          case 0x8CE0: // gl.MAX_COLOR_ATTACHMENTS
-            return 8
-          case 0x8D57: // gl.MAX_DRAW_BUFFERS
-            return 8
-          case 0x8824: // gl.MAX_RENDERBUFFER_SIZE
-            return 4096
-          case 0x8D56: // gl.MAX_SAMPLES
-            return 4
-          case 0x0C10: // gl.SCISSOR_BOX
-            return new Int32Array([0, 0, 1920, 1080])
-          case 0x0BA2: // gl.VIEWPORT
-            return new Int32Array([0, 0, 1920, 1080])
-          default:
-            return null
-        }
-      }
-    }
-
-    proto.__auraWebGLPatched = true
   }
 
-  if (window.WebGLRenderingContext) patchProto(window.WebGLRenderingContext.prototype)
-  if (window.WebGL2RenderingContext) patchProto(window.WebGL2RenderingContext.prototype)
+  // 2. Patch prototypes on the prototype chain using Object.defineProperty
+  const patchPrototypeObject = (protoObj: any) => {
+    if (!protoObj || protoObj.__auraWebGLPatched) return
+
+    try {
+      const origPrecision = protoObj.getShaderPrecisionFormat
+      Object.defineProperty(protoObj, 'getShaderPrecisionFormat', {
+        value: function (shaderType: number, precisionType: number) {
+          try {
+            if (origPrecision) {
+              const res = origPrecision.call(this, shaderType, precisionType)
+              if (res && typeof res.precision === 'number' && res.precision > 0) return res
+            }
+          } catch {}
+          return DEFAULT_SHADER_PRECISION
+        },
+        writable: true,
+        configurable: true
+      })
+    } catch {}
+
+    try {
+      const origGetParameter = protoObj.getParameter
+      Object.defineProperty(protoObj, 'getParameter', {
+        value: function (pname: number) {
+          try {
+            if (origGetParameter) {
+              const res = origGetParameter.call(this, pname)
+              if (res !== null && res !== undefined) {
+                if (
+                  pname === 0x1F02 ||
+                  pname === 0x8B8C ||
+                  pname === 0x1F00 ||
+                  pname === 0x1F01
+                ) {
+                  if (typeof res === 'string' && res.length > 0) return res
+                } else {
+                  return res
+                }
+              }
+            }
+          } catch {}
+          return getSafeParameterFallback(pname)
+        },
+        writable: true,
+        configurable: true
+      })
+    } catch {}
+
+    protoObj.__auraWebGLPatched = true
+  }
+
+  const patchChain = (startObj: any) => {
+    let curr = startObj
+    while (curr && curr !== Object.prototype) {
+      patchPrototypeObject(curr)
+      curr = Object.getPrototypeOf(curr)
+    }
+  }
+
+  if (window.WebGLRenderingContext) patchChain(window.WebGLRenderingContext.prototype)
+  if (window.WebGL2RenderingContext) patchChain(window.WebGL2RenderingContext.prototype)
 }
 
 /**
@@ -286,6 +418,15 @@ export class CharacterController {
   private frameCount: number = 0
   private lastFpsCheck: number = 0
   private currentFps: number = 60
+
+  // Hardware & Health Tracking (Phase 8)
+  private activeGpuRenderer: string = 'Detecting...'
+  private activeGpuVendor: string = 'Detecting...'
+  private contextLostCount: number = 0
+  private recoveryAttempts: number = 0
+  private readonly MAX_RECOVERY_ATTEMPTS: number = 3
+  private stableRenderTimer: number = 0
+  private avatarVisible: boolean = false
 
   // Lifecycle & Context Loss guards
   private isDisposed: boolean = false
@@ -456,6 +597,8 @@ export class CharacterController {
       cancelAnimationFrame(this.animFrameId)
       this.animFrameId = null
     }
+    this.currentFps = 0
+    this.notifyTelemetry({ fps: 0 })
   }
 
   public resume(): void {
@@ -472,14 +615,65 @@ export class CharacterController {
     patchWebGLPrototypesSafely()
 
     try {
+      // Phase 3 Conservative WebGL Attributes:
+      // - antialias: false (disables MSAA to avoid ANGLE msaa_is_slow & EGL version mismatch)
+      // - powerPreference: 'high-performance' (signals GPU driver to switch to NVIDIA RTX 3050)
+      // - depth: true, stencil: false (avoids unnecessary stencil allocations)
+      // - preserveDrawingBuffer: false (enables zero-copy compositing)
+      const contextAttributes: WebGLContextAttributes = {
+        alpha: true,
+        antialias: false,
+        depth: true,
+        stencil: false,
+        powerPreference: 'high-performance',
+        preserveDrawingBuffer: false
+      }
+
+      // Explicitly acquire and defensively wrap context instance
+      let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null
+      try {
+        gl = this.canvas.getContext('webgl2', contextAttributes)
+        if (!gl) {
+          gl = this.canvas.getContext('webgl', contextAttributes)
+        }
+      } catch (e) {
+        console.warn('[CharacterController] Direct context acquisition error:', e)
+      }
+
+      if (gl) {
+        wrapWebGLContextInstance(gl)
+      }
+
       const r = new THREE.WebGLRenderer({
         canvas: this.canvas,
-        antialias: true,
+        context: gl || undefined,
         alpha: true,
-        powerPreference: 'default'
+        antialias: false,
+        depth: true,
+        stencil: false,
+        powerPreference: 'high-performance',
+        preserveDrawingBuffer: false,
+        precision: 'highp'
       })
       r.outputColorSpace = THREE.SRGBColorSpace
-      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      r.setPixelRatio(1.0) // 1:1 hardware pixel ratio without unnecessary 2x retina oversampling
+
+      // Query active GPU renderer and vendor
+      const activeGl = gl || (typeof (r as any).getContext === 'function' ? (r as any).getContext() : null)
+      if (activeGl) {
+        const dbg = activeGl.getExtension('WEBGL_debug_renderer_info')
+        if (dbg) {
+          const uRenderer = activeGl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+          if (typeof uRenderer === 'string') this.activeGpuRenderer = uRenderer
+          const uVendor = activeGl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)
+          if (typeof uVendor === 'string') this.activeGpuVendor = uVendor
+        }
+        if (this.activeGpuRenderer === 'Detecting...') {
+          const stdRenderer = activeGl.getParameter(activeGl.RENDERER)
+          if (typeof stdRenderer === 'string') this.activeGpuRenderer = stdRenderer
+        }
+      }
+
       return r
     } catch (err) {
       const originalMsg = err instanceof Error ? err.message : String(err)
@@ -500,18 +694,36 @@ export class CharacterController {
   private handleContextLost = (event: Event): void => {
     event.preventDefault()
     this.isContextLost = true
+    this.contextLostCount++
+    this.avatarVisible = false
+    this.currentFps = 0
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId)
       this.animFrameId = null
     }
-    const errMsg = 'WebGL graphics context was lost (GPU reset). Waiting for restoration...'
+    const errMsg = `WebGL graphics context was lost (event #${this.contextLostCount}). Waiting for restoration...`
     console.warn('[CharacterController]', errMsg)
     if (this.onError) this.onError(errMsg, 'context_lost')
+    this.notifyTelemetry({
+      contextLostCount: this.contextLostCount,
+      avatarVisible: false,
+      fps: 0,
+      rendererReady: false
+    })
   }
 
   private handleContextRestored = (): void => {
     console.info('[CharacterController] WebGL context restored. Rebuilding scene...')
     this.isContextLost = false
+    this.recoveryAttempts++
+
+    if (this.recoveryAttempts > this.MAX_RECOVERY_ATTEMPTS) {
+      const limitMsg = 'WebGL context recovery limit exceeded (3 attempts). Switching to CSS/SVG fallback.'
+      console.error('[CharacterController]', limitMsg)
+      if (this.onError) this.onError(limitMsg, 'context_lost')
+      return
+    }
+
     this.renderer = this.createRenderer()
     if (this.renderer) {
       if (this.mode === 'vrm' && this.lastLoadedBuffer) {
@@ -865,13 +1077,19 @@ export class CharacterController {
       modelName: this.mode === 'vrm' ? (this.vrmMetaInfo?.title || 'Custom VRM Model') : 'Holographic Fallback Core',
       state: this.currentState,
       isSpeaking: this.isSpeaking,
-      fps: this.currentFps,
+      fps: this.isPaused || this.isContextLost ? 0 : this.currentFps,
       error: null,
       expressionsCount: this.availableExpressions.size,
       availableExpressions: Array.from(this.availableExpressions),
       vrmMeta: this.vrmMetaInfo,
       lipSyncMode: 'amplitude-spectral',
       audioAmplitude: Math.round(this.currentAudioAmplitude * 100) / 100,
+      gpuRenderer: this.activeGpuRenderer,
+      gpuVendor: this.activeGpuVendor,
+      webgl2Available: !this.isContextLost && this.renderer !== null,
+      rendererReady: this.renderer !== null && !this.isContextLost,
+      avatarVisible: this.avatarVisible,
+      contextLostCount: this.contextLostCount,
       ...custom
     })
   }
@@ -903,6 +1121,18 @@ export class CharacterController {
     this.animFrameId = requestAnimationFrame(this.animate)
 
     this.renderFrame()
+
+    // Mark avatar visible on first successful frame render
+    if (!this.avatarVisible) {
+      this.avatarVisible = true
+      this.notifyTelemetry({ avatarVisible: true })
+    }
+
+    // Reset recovery attempts after stable continuous rendering for 5 seconds
+    this.stableRenderTimer += 0.016
+    if (this.stableRenderTimer >= 5.0 && this.recoveryAttempts > 0) {
+      this.recoveryAttempts = 0
+    }
 
     // Measure FPS
     this.frameCount++
@@ -1187,13 +1417,12 @@ export class CharacterController {
     this.particles.geometry.dispose()
     if (this.particles.material instanceof THREE.Material) this.particles.material.dispose()
 
-    // Dispose renderer
+    // Dispose renderer cleanly without forcing context loss (Phase 5)
     if (this.renderer) {
       try {
         this.renderer.dispose()
-        this.renderer.forceContextLoss()
       } catch {
-        // Ignore context loss errors on teardown
+        // Ignore teardown errors
       }
       this.renderer = null
     }

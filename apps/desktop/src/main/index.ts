@@ -5,15 +5,28 @@ import { setupSecurityHandlers } from './security'
 import { registerIpcHandlers } from './ipc'
 import { createBackendSupervisor } from './supervisor'
 
-// Hardware acceleration & WebGL switches for Three.js & VRM 3D rendering
-// Note: Chromium on Windows uses D3D11 ANGLE natively. Do not force generic 'use-gl=angle'
-// without backend, as it can cause null driver string parameters or context failures.
+// Hardware acceleration & discrete GPU switches for Three.js & VRM 3D rendering
+// On dual-GPU laptops (e.g. Intel UHD + NVIDIA GeForce RTX 3050), Chromium defaults to the integrated Intel GPU.
+// These switches instruct Chromium to prefer the discrete high-performance GPU with Direct3D 11 ANGLE backend,
+// preventing EGL context version mismatches and activating full hardware acceleration.
 app.commandLine.appendSwitch('ignore-gpu-blocklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('force_high_performance_gpu')
+app.commandLine.appendSwitch('use-angle', 'd3d11')
 
 let mainWindow: BrowserWindow | null = null
 const supervisor = createBackendSupervisor(8000)
+
+// Listen for GPU info update event from Chromium GPU process
+app.on('gpu-info-update', async () => {
+  try {
+    const info = await app.getGPUInfo('complete')
+    console.info('[GPU] Hardware configuration updated:', info ? 'complete profile available' : 'empty')
+  } catch {
+    // Ignore early update failures
+  }
+})
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({

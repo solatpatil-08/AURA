@@ -234,14 +234,60 @@ export const AvatarStage: React.FC = () => {
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               {telemetry.mode === 'vrm' && telemetry.vrmMeta?.author
-                ? `Author: ${telemetry.vrmMeta.author} • Hardware WebGL`
-                : 'Hardware WebGL • Three.js v0.186 & @pixiv/three-vrm v3.5'}
+                ? `Author: ${telemetry.vrmMeta.author} • ${telemetry.gpuRenderer || 'Hardware WebGL'}`
+                : `${telemetry.gpuRenderer || 'Hardware WebGL'} • Three.js v0.186 & @pixiv/three-vrm v3.5`}
             </div>
           </div>
         </div>
 
         {/* Telemetry Stats & Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Active GPU Renderer Badge (Phase 8) */}
+          {telemetry.gpuRenderer && telemetry.gpuRenderer !== 'Detecting...' && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: telemetry.gpuRenderer.toLowerCase().includes('nvidia')
+                  ? 'rgba(118, 185, 0, 0.15)'
+                  : 'rgba(255, 255, 255, 0.04)',
+                border: telemetry.gpuRenderer.toLowerCase().includes('nvidia')
+                  ? '1px solid rgba(118, 185, 0, 0.4)'
+                  : '1px solid rgba(255, 255, 255, 0.08)',
+                color: telemetry.gpuRenderer.toLowerCase().includes('nvidia')
+                  ? '#76b900'
+                  : 'var(--text-muted)',
+                fontSize: '11px',
+                fontFamily: 'monospace'
+              }}
+              title={telemetry.gpuRenderer}
+            >
+              <span>{telemetry.gpuRenderer.toLowerCase().includes('nvidia') ? 'NVIDIA RTX' : 'Active GPU'}</span>
+            </div>
+          )}
+
+          {/* Context Loss Counter (Phase 8) */}
+          {typeof telemetry.contextLostCount === 'number' && telemetry.contextLostCount > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                background: 'rgba(245, 166, 35, 0.15)',
+                border: '1px solid rgba(245, 166, 35, 0.35)',
+                color: '#f5a623',
+                fontSize: '11px'
+              }}
+              title="GPU reset events intercepted and restored"
+            >
+              <span>GPU Resets: {telemetry.contextLostCount}</span>
+            </div>
+          )}
           {/* Expressions Count Pill for VRM */}
           {telemetry.mode === 'vrm' && typeof telemetry.expressionsCount === 'number' && (
             <div
@@ -304,7 +350,7 @@ export const AvatarStage: React.FC = () => {
             }}
           >
             <Activity style={{ width: '12px', height: '12px', color: '#00f2fe' }} />
-            <span>{telemetry.fps || 60} FPS</span>
+            <span>{typeof telemetry.fps === 'number' ? telemetry.fps : 0} FPS</span>
           </div>
 
           {/* Load / Reset VRM Model Buttons */}

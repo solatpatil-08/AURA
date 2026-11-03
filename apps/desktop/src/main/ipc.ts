@@ -61,17 +61,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('system:get-gpu-diagnostics', async (): Promise<GpuDiagnosticsResponse> => {
     const featureStatus = app.getGPUFeatureStatus()
     const hwDisabled = app.commandLine.hasSwitch('disable-gpu') || featureStatus.gpu_compositing === 'disabled'
-    let basicGpuInfo: Record<string, unknown> | undefined = undefined
+    let gpuInfo: Record<string, unknown> | undefined = undefined
     try {
-      basicGpuInfo = (await app.getGPUInfo('basic')) as Record<string, unknown>
+      gpuInfo = (await app.getGPUInfo('complete')) as Record<string, unknown>
     } catch {
-      // Ignore if basic info query fails or is unsupported
+      try {
+        gpuInfo = (await app.getGPUInfo('basic')) as Record<string, unknown>
+      } catch {
+        // Ignore if query fails or is unsupported
+      }
     }
 
     return {
       hardwareAccelerationEnabled: !hwDisabled,
       featureStatus: featureStatus as unknown as Record<string, unknown>,
-      gpuInfo: basicGpuInfo
+      gpuInfo
     }
   })
 
