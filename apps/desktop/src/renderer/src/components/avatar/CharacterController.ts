@@ -28,6 +28,38 @@ const STATE_PALETTES: Record<AssistantState, { primary: number; glow: number; am
   error: { primary: 0xe53170, glow: 0xc42058, ambientIntensity: 1.2 }
 }
 
+// Defensive patch for Chromium / WebGL drivers where getShaderPrecisionFormat returns null
+function patchShaderPrecisionSafely(): void {
+  if (typeof window === 'undefined') return
+  const patch = (proto: any) => {
+    if (!proto || !proto.getShaderPrecisionFormat || proto.__auraPrecisionPatched) return
+    try {
+      const original = proto.getShaderPrecisionFormat
+      proto.getShaderPrecisionFormat = function (shaderType: number, precisionType: number) {
+        try {
+          const res = original.call(this, shaderType, precisionType)
+          if (res && typeof res.precision === 'number') {
+            return res
+          }
+        } catch {
+          // Fall through
+        }
+        return {
+          precision: precisionType === 0x8DF2 ? 23 : precisionType === 0x8DF1 ? 16 : 8,
+          rangeMin: 127,
+          rangeMax: 127
+        }
+      }
+      proto.__auraPrecisionPatched = true
+    } catch {
+      // Ignore prototype mutation error
+    }
+  }
+
+  if (window.WebGLRenderingContext) patch(window.WebGLRenderingContext.prototype)
+  if (window.WebGL2RenderingContext) patch(window.WebGL2RenderingContext.prototype)
+}
+
 /**
  * Isolated CharacterController managing Three.js canvas rendering,
  * procedural holographic fallback graphics, and @pixiv/three-vrm character animation.
@@ -128,21 +160,8 @@ export class CharacterController {
     this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 25)
     this.camera.position.set(0, 0, 3.8)
 
-    // 3. Initialize WebGLRenderer with defensive error checking
-    try {
-      this.renderer = new THREE.WebGLRenderer({
-        canvas: this.canvas,
-        antialias: true,
-        alpha: true,
-        powerPreference: 'high-performance'
-      })
-      this.renderer.outputColorSpace = THREE.SRGBColorSpace
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
-    } catch (err) {
-      const errMsg = `WebGL initialization failed: ${err instanceof Error ? err.message : String(err)}`
-      console.error('[CharacterController]', errMsg)
-      if (this.onError) this.onError(errMsg)
-    }
+    // 3. Initialize WebGLRenderer with defensive multi-tier fallback
+    this.renderer = this.createRenderer()
 
     // 4. Initialize Lighting
     const initialPalette = STATE_PALETTES.idle
@@ -285,6 +304,28 @@ export class CharacterController {
       if (this.animFrameId === null && this.renderer) {
         this.animate()
       }
+    }
+  }
+
+  private createRenderer(): THREE.WebGLRenderer | null {
+    patchShaderPrecisionSafely()
+
+    try {
+      const r = new THREE.WebGLRenderer({
+        canvas: this.canvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: 'default'
+      })
+      r.outputColorSpace = THREE.SRGBColorSpace
+      r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      return r
+    } catch (err) {
+      const originalMsg = err instanceof Error ? err.message : String(err)
+      const fatalMsg = `WebGL initialization failed: ${originalMsg}`
+      console.error('[CharacterController]', fatalMsg)
+      if (this.onError) this.onError(fatalMsg)
+      return null
     }
   }
 
@@ -556,17 +597,26 @@ export class CharacterController {
   }
 
   private adjustCameraForVrm(vrm: VRM): void {
+    // Ensure world transformations are computed
+    vrm.scene.updateMatrixWorld(true)
+
     let headY = 1.4
     if (vrm.humanoid) {
       const headBone = vrm.humanoid.getNormalizedBoneNode(VRMHumanBoneName.Head)
       if (headBone) {
         const headWorldPos = new THREE.Vector3()
         headBone.getWorldPosition(headWorldPos)
-        if (headWorldPos.y > 0.5) {
+        if (headWorldPos.y > 0.4) {
           headY = headWorldPos.y
         }
       }
+    } else {
+      const bbox = new THREE.Box3().setFromObject(vrm.scene)
+      if (!bbox.isEmpty()) {
+        headY = bbox.max.y * 0.9
+      }
     }
+
     // Position camera focused on upper bust and face
     this.camera.position.set(0, headY - 0.05, 1.15)
     this.camera.lookAt(0, headY - 0.1, 0)

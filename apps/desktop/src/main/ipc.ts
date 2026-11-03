@@ -70,13 +70,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!filePath || typeof filePath !== 'string') {
       throw new Error('Invalid file path provided')
     }
-    const cleanPath = filePath.trim().replace(/^file:\/\/\/?/, '')
-    const resolved = path.resolve(cleanPath)
+    let cleanPath = filePath.trim().replace(/^file:\/\/\/?/, '')
+    try {
+      cleanPath = decodeURIComponent(cleanPath)
+    } catch {
+      // Ignore URI decode errors
+    }
+    let resolved = path.resolve(cleanPath)
     if (!resolved.toLowerCase().endsWith('.vrm')) {
       throw new Error('Character model must have a .vrm extension')
     }
     if (!existsSync(resolved)) {
-      throw new Error(`VRM file does not exist: ${resolved}`)
+      // Check relative to cwd / workspace
+      const fromCwd = path.resolve(process.cwd(), cleanPath)
+      if (existsSync(fromCwd)) {
+        resolved = fromCwd
+      } else {
+        throw new Error(`VRM file does not exist: ${resolved}`)
+      }
     }
     const stat = await fs.stat(resolved)
     const MAX_VRM_BYTES = 200 * 1024 * 1024 // 200 MB maximum
@@ -92,10 +103,20 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!sourcePath || typeof sourcePath !== 'string') {
       throw new Error('Invalid source file path provided')
     }
-    const cleanSource = sourcePath.trim().replace(/^file:\/\/\/?/, '')
-    const resolvedSource = path.resolve(cleanSource)
+    let cleanSource = sourcePath.trim().replace(/^file:\/\/\/?/, '')
+    try {
+      cleanSource = decodeURIComponent(cleanSource)
+    } catch {
+      // Ignore
+    }
+    let resolvedSource = path.resolve(cleanSource)
     if (!existsSync(resolvedSource)) {
-      throw new Error(`Source VRM file not found: ${resolvedSource}`)
+      const fromCwd = path.resolve(process.cwd(), cleanSource)
+      if (existsSync(fromCwd)) {
+        resolvedSource = fromCwd
+      } else {
+        throw new Error(`Source VRM file not found: ${resolvedSource}`)
+      }
     }
 
     const userDataDir = app.getPath('userData')
@@ -112,20 +133,38 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return destPath
   })
 
-  // Retrieve existing stored character from local user-data directory
+  // Retrieve existing stored character from local user-data directory or project workspace
   ipcMain.handle('vrm:get-stored-character', async (): Promise<string | null> => {
     const userDataDir = app.getPath('userData')
     const targetDir = path.join(userDataDir, 'characters')
-    if (!existsSync(targetDir)) return null
 
-    try {
-      const files = await fs.readdir(targetDir)
-      const vrmFiles = files.filter((f) => f.toLowerCase().endsWith('.vrm'))
-      if (vrmFiles.length === 0) return null
-      return path.join(targetDir, vrmFiles[0])
-    } catch {
-      return null
+    // 1. Check user-data directory first
+    if (existsSync(targetDir)) {
+      try {
+        const files = await fs.readdir(targetDir)
+        const vrmFiles = files.filter((f) => f.toLowerCase().endsWith('.vrm'))
+        if (vrmFiles.length > 0) {
+          return path.join(targetDir, vrmFiles[0])
+        }
+      } catch {
+        // Fall through
+      }
     }
+
+    // 2. Check local workspace models/vrm directory for aura.vrm
+    const defaultLocalVrm = path.resolve(process.cwd(), 'models/vrm/aura.vrm')
+    if (existsSync(defaultLocalVrm)) {
+      try {
+        await fs.mkdir(targetDir, { recursive: true })
+        const dest = path.join(targetDir, 'aura.vrm')
+        await fs.copyFile(defaultLocalVrm, dest)
+        return dest
+      } catch {
+        return defaultLocalVrm
+      }
+    }
+
+    return null
   })
 
   // Reset character selection back to procedural fallback

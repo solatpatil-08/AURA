@@ -5,6 +5,13 @@ import { setupSecurityHandlers } from './security'
 import { registerIpcHandlers } from './ipc'
 import { createBackendSupervisor } from './supervisor'
 
+// Hardware acceleration & WebGL switches for Three.js & VRM 3D rendering
+app.commandLine.appendSwitch('ignore-gpu-blocklist')
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('enable-webgl')
+app.commandLine.appendSwitch('use-gl', 'angle')
+
 let mainWindow: BrowserWindow | null = null
 const supervisor = createBackendSupervisor(8000)
 
@@ -24,7 +31,8 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
-      allowRunningInsecureContent: false
+      allowRunningInsecureContent: false,
+      webgl: true
     }
   })
 
