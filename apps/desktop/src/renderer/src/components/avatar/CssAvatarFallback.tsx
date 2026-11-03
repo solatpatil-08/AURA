@@ -367,3 +367,4 @@ export const CssAvatarFallback: React.FC<CssAvatarFallbackProps> = ({
     </div>
   )
 }
+
