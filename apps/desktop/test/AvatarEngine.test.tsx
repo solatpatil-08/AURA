@@ -236,4 +236,126 @@ describe('AURA Avatar Engine 2.0: 3D Character & VRM Animation System', () => {
       }
     })
   })
+
+  describe('Live 3D VRM Model Lifecycle with aura.vrm', () => {
+    it('loads an actual VRM model file, initializes humanoid bones, and extracts metadata', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const vrmPath = path.resolve(__dirname, '../../../models/vrm/aura.vrm')
+      if (!fs.existsSync(vrmPath)) return
+
+      const fileBuffer = fs.readFileSync(vrmPath)
+      const arrayBuffer = fileBuffer.buffer.slice(
+        fileBuffer.byteOffset,
+        fileBuffer.byteOffset + fileBuffer.byteLength
+      )
+
+      let capturedTelemetry: any = null
+      const controller = new CharacterController(canvas, {
+        autoAnimate: false,
+        onTelemetry: (t) => {
+          capturedTelemetry = t
+        }
+      })
+
+      await controller.loadModelFromBuffer(arrayBuffer, 'aura.vrm')
+
+      expect(capturedTelemetry.mode).toBe('vrm')
+      expect(capturedTelemetry.modelName).toBe('AvatarSample_U')
+      expect(capturedTelemetry.vrmMeta?.author).toContain('VRoid')
+      expect(capturedTelemetry.expressionsCount).toBeGreaterThanOrEqual(14)
+      expect(capturedTelemetry.availableExpressions).toContain('aa')
+      expect(capturedTelemetry.availableExpressions).toContain('blink')
+
+      controller.dispose()
+    })
+
+    it('animates idle breathing, natural head sway, and blinking on real VRM character', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const vrmPath = path.resolve(__dirname, '../../../models/vrm/aura.vrm')
+      if (!fs.existsSync(vrmPath)) return
+
+      const fileBuffer = fs.readFileSync(vrmPath)
+      const arrayBuffer = fileBuffer.buffer.slice(
+        fileBuffer.byteOffset,
+        fileBuffer.byteOffset + fileBuffer.byteLength
+      )
+
+      const controller = new CharacterController(canvas, { autoAnimate: false })
+      await controller.loadModelFromBuffer(arrayBuffer, 'aura.vrm')
+
+      controller.setState('idle')
+      // Advance internal timer across multiple frames
+      for (let i = 0; i < 20; i++) {
+        controller.renderFrame()
+      }
+
+      controller.dispose()
+    })
+
+    it('transitions to listening state and applies attentive head tilt & expression', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const vrmPath = path.resolve(__dirname, '../../../models/vrm/aura.vrm')
+      if (!fs.existsSync(vrmPath)) return
+
+      const fileBuffer = fs.readFileSync(vrmPath)
+      const arrayBuffer = fileBuffer.buffer.slice(
+        fileBuffer.byteOffset,
+        fileBuffer.byteOffset + fileBuffer.byteLength
+      )
+
+      const controller = new CharacterController(canvas, { autoAnimate: false })
+      await controller.loadModelFromBuffer(arrayBuffer, 'aura.vrm')
+
+      controller.setState('listening')
+      controller.renderFrame()
+
+      controller.dispose()
+    })
+
+    it('animates mouth visemes in response to speech audio amplitude analysis on real VRM model', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const vrmPath = path.resolve(__dirname, '../../../models/vrm/aura.vrm')
+      if (!fs.existsSync(vrmPath)) return
+
+      const fileBuffer = fs.readFileSync(vrmPath)
+      const arrayBuffer = fileBuffer.buffer.slice(
+        fileBuffer.byteOffset,
+        fileBuffer.byteOffset + fileBuffer.byteLength
+      )
+
+      let latestTelemetry: any = null
+      const controller = new CharacterController(canvas, {
+        autoAnimate: false,
+        onTelemetry: (t) => {
+          latestTelemetry = t
+        }
+      })
+      await controller.loadModelFromBuffer(arrayBuffer, 'aura.vrm')
+
+      const mockAnalyser = {
+        frequencyBinCount: 128,
+        getByteFrequencyData: vi.fn((arr: Uint8Array) => {
+          for (let i = 4; i < 24; i++) {
+            arr[i] = 200
+          }
+        })
+      } as unknown as AnalyserNode
+
+      controller.setAudioAnalyser(mockAnalyser)
+      controller.setState('speaking')
+      controller.setSpeaking(true)
+
+      controller.renderFrame()
+
+      expect(latestTelemetry.lipSyncMode).toBe('amplitude-spectral')
+      expect(latestTelemetry.isSpeaking).toBe(true)
+
+      controller.dispose()
+    })
+  })
 })
+

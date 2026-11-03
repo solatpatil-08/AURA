@@ -329,13 +329,25 @@ export class CharacterController {
    */
   private safeSetExpression(name: string, value: number): void {
     if (!this.currentVrm?.expressionManager) return
-    if (this.availableExpressions.has(name)) {
+    const targetName = this.resolveExpressionName(name)
+    if (targetName) {
       try {
-        this.currentVrm.expressionManager.setValue(name, Math.max(0, Math.min(1, value)))
+        this.currentVrm.expressionManager.setValue(targetName, Math.max(0, Math.min(1, value)))
       } catch {
         // Silently catch unsupported expression application
       }
     }
+  }
+
+  private resolveExpressionName(name: string): string | null {
+    if (!this.currentVrm?.expressionManager) return null
+    if (this.availableExpressions.has(name)) return name
+    const lower = name.toLowerCase()
+    if (this.availableExpressions.has(lower)) return lower
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1)
+    if (this.availableExpressions.has(capitalized)) return capitalized
+    if (this.currentVrm.expressionManager.getExpression(name)) return name
+    return null
   }
 
   private applyStateVisuals(state: AssistantState): void {
@@ -378,15 +390,24 @@ export class CharacterController {
    * Strictly avoids automatic or arbitrary remote URL downloads.
    */
   public async loadModelFromBuffer(buffer: ArrayBuffer, modelName: string = 'Custom VRM'): Promise<void> {
-    // 1. Validate buffer length
-    if (!buffer || buffer.byteLength < 12) {
+    // 1. Normalize buffer to the active execution realm's ArrayBuffer
+    let targetBuffer: ArrayBuffer = buffer
+    if (typeof ArrayBuffer !== 'undefined' && !(buffer instanceof ArrayBuffer)) {
+      const u8 = new Uint8Array(buffer as ArrayBuffer)
+      const freshBuffer = new ArrayBuffer(u8.byteLength)
+      new Uint8Array(freshBuffer).set(u8)
+      targetBuffer = freshBuffer
+    }
+
+    // 2. Validate buffer length
+    if (!targetBuffer || targetBuffer.byteLength < 12) {
       const err = 'Invalid model file: Buffer too small to be a valid glTF/VRM file'
       this.handleLoadError(err)
       throw new Error(err)
     }
 
-    // 2. Validate glTF binary magic: 0x46546C67 ('glTF')
-    const dataView = new DataView(buffer)
+    // 3. Validate glTF binary magic: 0x46546C67 ('glTF')
+    const dataView = new DataView(targetBuffer)
     const magic = dataView.getUint32(0, true)
     if (magic !== 0x46546C67) {
       const err = 'Invalid model format: File header does not match binary glTF (VRM)'
@@ -400,7 +421,7 @@ export class CharacterController {
     return new Promise((resolve, reject) => {
       try {
         loader.parse(
-          buffer,
+          targetBuffer,
           '',
           (gltf) => {
             try {
@@ -460,8 +481,8 @@ export class CharacterController {
               // 5. Extract metadata
               const meta = vrm.meta
               const metaTitle =
-                (meta as unknown as { title?: string; name?: string })?.title ||
-                (meta as unknown as { title?: string; name?: string })?.name ||
+                (meta as unknown as { name?: string; title?: string })?.name ||
+                (meta as unknown as { name?: string; title?: string })?.title ||
                 modelName
               const metaAuthor =
                 (meta as unknown as { authors?: string[]; author?: string })?.authors?.join(', ') ||

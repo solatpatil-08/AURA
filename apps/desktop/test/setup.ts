@@ -22,6 +22,22 @@ vi.mock('three', async (importOriginal) => {
   }
 })
 
+// Mock createImageBitmap for GLTF texture parsing in headless jsdom
+if (typeof window !== 'undefined' && typeof window.createImageBitmap === 'undefined') {
+  window.createImageBitmap = vi.fn().mockResolvedValue({
+    width: 256,
+    height: 256,
+    close: vi.fn(),
+  }) as unknown as typeof createImageBitmap
+}
+if (typeof globalThis.createImageBitmap === 'undefined') {
+  globalThis.createImageBitmap = vi.fn().mockResolvedValue({
+    width: 256,
+    height: 256,
+    close: vi.fn(),
+  }) as unknown as typeof createImageBitmap
+}
+
 // Mock scrollIntoView for jsdom environment
 window.HTMLElement.prototype.scrollIntoView = vi.fn()
 
@@ -202,6 +218,17 @@ Object.defineProperty(window, 'auraAPI', {
     loadVrmBinary: vi.fn().mockImplementation((filePath: string) => {
       if (filePath.includes('invalid') || filePath.includes('corrupt')) {
         return Promise.reject(new Error('VRM file does not exist or is corrupted'))
+      }
+      try {
+        const fs = require('fs')
+        const path = require('path')
+        const candidate = path.resolve('models/vrm/aura.vrm')
+        if (fs.existsSync(candidate)) {
+          const buf = fs.readFileSync(candidate)
+          return Promise.resolve(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength))
+        }
+      } catch {
+        // Fallback
       }
       return Promise.resolve(new ArrayBuffer(1024))
     }),
