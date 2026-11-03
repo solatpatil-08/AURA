@@ -10,6 +10,12 @@ export interface SystemStatusResponse {
   micReady: boolean
 }
 
+export interface GpuDiagnosticsResponse {
+  hardwareAccelerationEnabled: boolean
+  featureStatus: Record<string, unknown>
+  gpuInfo?: Record<string, unknown>
+}
+
 /**
  * Register validated IPC listeners for the renderer process.
  * Strict channel allowlist with input validation.
@@ -48,6 +54,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       activeModel: 'qwen3.5:4b',
       memoryMb: Math.round(memoryUsage.heapUsed / 1024 / 1024),
       micReady: false // Explicitly standby per Phase 1 requirements
+    }
+  })
+
+  // Safe GPU diagnostics collection for WebGL & graphics debugging
+  ipcMain.handle('system:get-gpu-diagnostics', async (): Promise<GpuDiagnosticsResponse> => {
+    const featureStatus = app.getGPUFeatureStatus()
+    const hwDisabled = app.commandLine.hasSwitch('disable-gpu') || featureStatus.gpu_compositing === 'disabled'
+    let basicGpuInfo: Record<string, unknown> | undefined = undefined
+    try {
+      basicGpuInfo = (await app.getGPUInfo('basic')) as Record<string, unknown>
+    } catch {
+      // Ignore if basic info query fails or is unsupported
+    }
+
+    return {
+      hardwareAccelerationEnabled: !hwDisabled,
+      featureStatus: featureStatus as unknown as Record<string, unknown>,
+      gpuInfo: basicGpuInfo
     }
   })
 

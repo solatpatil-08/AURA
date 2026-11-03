@@ -9,9 +9,18 @@ import {
 } from '@pixiv/three-vrm'
 import { AssistantState, CharacterRenderMode, CharacterTelemetry } from '../../types'
 
+export type GraphicsErrorCategory =
+  | 'gpu_unavailable'
+  | 'webgl2_unsupported'
+  | 'renderer_init_failed'
+  | 'vrm_load_failed'
+  | 'shader_material_failed'
+  | 'context_lost'
+  | 'unknown_exception'
+
 export interface CharacterControllerOptions {
   onTelemetry?: (telemetry: Partial<CharacterTelemetry>) => void
-  onError?: (error: string) => void
+  onError?: (error: string, category?: GraphicsErrorCategory) => void
   autoAnimate?: boolean
 }
 
@@ -28,21 +37,96 @@ const STATE_PALETTES: Record<AssistantState, { primary: number; glow: number; am
   error: { primary: 0xe53170, glow: 0xc42058, ambientIntensity: 1.2 }
 }
 
-// Defensive patch for Chromium / WebGL drivers where getShaderPrecisionFormat returns null
-function patchShaderPrecisionSafely(): void {
+/**
+ * Pre-flight WebGL2 capability check.
+ * Strictly verifies whether WebGL2 context can be obtained and is not lost.
+ */
+export interface WebGL2VerificationResult {
+  isSupported: boolean
+  category?: GraphicsErrorCategory
+  errorMessage?: string
+  glVersion?: string
+  renderer?: string
+  vendor?: string
+}
+
+export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2VerificationResult {
+  if (typeof window === 'undefined' || !window.WebGL2RenderingContext) {
+    return {
+      isSupported: false,
+      category: 'webgl2_unsupported',
+      errorMessage: 'WebGL2 is not supported in this runtime environment. A modern Chromium/Electron build is required.'
+    }
+  }
+
+  try {
+    const gl = canvas.getContext('webgl2', {
+      alpha: true,
+      antialias: true,
+      powerPreference: 'default'
+    })
+
+    if (!gl) {
+      return {
+        isSupported: false,
+        category: 'gpu_unavailable',
+        errorMessage: 'Unable to acquire a WebGL2 rendering context. Hardware acceleration may be disabled or blocked.'
+      }
+    }
+
+    if (gl.isContextLost()) {
+      return {
+        isSupported: false,
+        category: 'context_lost',
+        errorMessage: 'The WebGL2 context was lost immediately upon creation.'
+      }
+    }
+
+    const version = gl.getParameter(gl.VERSION)
+    const renderer = gl.getParameter(gl.RENDERER)
+    const vendor = gl.getParameter(gl.VENDOR)
+
+    return {
+      isSupported: true,
+      glVersion: typeof version === 'string' ? version : 'WebGL 2.0',
+      renderer: typeof renderer === 'string' ? renderer : 'WebKit WebGL',
+      vendor: typeof vendor === 'string' ? vendor : 'WebKit'
+    }
+  } catch (err) {
+    return {
+      isSupported: false,
+      category: 'renderer_init_failed',
+      errorMessage: `WebGL2 pre-flight verification error: ${err instanceof Error ? err.message : String(err)}`
+    }
+  }
+}
+
+/**
+ * Defensive patch for Chromium / ANGLE / Windows graphics drivers where WebGL queries
+ * may return null or unexpected non-spec values under certain hardware/policy conditions.
+ *
+ * Specifically addresses:
+ * 1. gl.getParameter(gl.VERSION) returning null -> crashes Three.js WebGLState (.indexOf('WebGL'))
+ * 2. gl.getShaderPrecisionFormat returning null -> crashes Three.js WebGLCapabilities (.precision)
+ * 3. gl.getParameter for limits (MAX_TEXTURE_SIZE, MAX_VERTEX_ATTRIBS, etc.) returning null
+ */
+export function patchWebGLPrototypesSafely(): void {
   if (typeof window === 'undefined') return
-  const patch = (proto: any) => {
-    if (!proto || !proto.getShaderPrecisionFormat || proto.__auraPrecisionPatched) return
-    try {
-      const original = proto.getShaderPrecisionFormat
+
+  const patchProto = (proto: any) => {
+    if (!proto || proto.__auraWebGLPatched) return
+
+    // 1. Safe getShaderPrecisionFormat
+    if (proto.getShaderPrecisionFormat) {
+      const originalPrecision = proto.getShaderPrecisionFormat
       proto.getShaderPrecisionFormat = function (shaderType: number, precisionType: number) {
         try {
-          const res = original.call(this, shaderType, precisionType)
-          if (res && typeof res.precision === 'number') {
+          const res = originalPrecision.call(this, shaderType, precisionType)
+          if (res && typeof res.precision === 'number' && res.precision > 0) {
             return res
           }
         } catch {
-          // Fall through
+          // Fall through to fallback
         }
         return {
           precision: precisionType === 0x8DF2 ? 23 : precisionType === 0x8DF1 ? 16 : 8,
@@ -50,14 +134,82 @@ function patchShaderPrecisionSafely(): void {
           rangeMax: 127
         }
       }
-      proto.__auraPrecisionPatched = true
-    } catch {
-      // Ignore prototype mutation error
     }
+
+    // 2. Safe getParameter
+    if (proto.getParameter) {
+      const originalGetParameter = proto.getParameter
+      proto.getParameter = function (pname: number) {
+        try {
+          const res = originalGetParameter.call(this, pname)
+          if (res !== null && res !== undefined) {
+            // For string parameters, verify non-empty string
+            if (
+              pname === 0x1F02 /* VERSION */ ||
+              pname === 0x8B8C /* SHADING_LANGUAGE_VERSION */ ||
+              pname === 0x1F00 /* VENDOR */ ||
+              pname === 0x1F01 /* RENDERER */
+            ) {
+              if (typeof res === 'string' && res.length > 0) return res
+            } else {
+              return res
+            }
+          }
+        } catch {
+          // Fall through to fallback
+        }
+
+        // Defensive fallbacks for critical Three.js parameters
+        switch (pname) {
+          case 0x1F02: // gl.VERSION
+            return 'WebGL 2.0 (OpenGL ES 3.0 Chromium)'
+          case 0x8B8C: // gl.SHADING_LANGUAGE_VERSION
+            return 'WebGL GLSL ES 3.00 (OpenGL ES GLSL ES 3.0 Chromium)'
+          case 0x1F00: // gl.VENDOR
+            return 'WebKit'
+          case 0x1F01: // gl.RENDERER
+            return 'WebKit WebGL'
+          case 0x8872: // gl.MAX_TEXTURE_IMAGE_UNITS
+            return 16
+          case 0x8B4D: // gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS
+            return 32
+          case 0x8869: // gl.MAX_VERTEX_ATTRIBS
+            return 16
+          case 0x0D33: // gl.MAX_TEXTURE_SIZE
+            return 4096
+          case 0x8515: // gl.MAX_CUBE_MAP_TEXTURE_SIZE
+            return 4096
+          case 0x8DF8: // gl.MAX_VERTEX_UNIFORM_VECTORS
+            return 256
+          case 0x8DF9: // gl.MAX_VARYING_VECTORS
+            return 15
+          case 0x8DFA: // gl.MAX_FRAGMENT_UNIFORM_VECTORS
+            return 256
+          case 0x8A2B: // gl.MAX_UNIFORM_BUFFER_BINDINGS
+            return 24
+          case 0x8CE0: // gl.MAX_COLOR_ATTACHMENTS
+            return 8
+          case 0x8D57: // gl.MAX_DRAW_BUFFERS
+            return 8
+          case 0x8824: // gl.MAX_RENDERBUFFER_SIZE
+            return 4096
+          case 0x8D56: // gl.MAX_SAMPLES
+            return 4
+          case 0x0C10: // gl.SCISSOR_BOX
+            return new Int32Array([0, 0, 1920, 1080])
+          case 0x0BA2: // gl.VIEWPORT
+            return new Int32Array([0, 0, 1920, 1080])
+          default:
+            return null
+        }
+      }
+    }
+
+    proto.__auraWebGLPatched = true
   }
 
-  if (window.WebGLRenderingContext) patch(window.WebGLRenderingContext.prototype)
-  if (window.WebGL2RenderingContext) patch(window.WebGL2RenderingContext.prototype)
+  if (window.WebGLRenderingContext) patchProto(window.WebGLRenderingContext.prototype)
+  if (window.WebGL2RenderingContext) patchProto(window.WebGL2RenderingContext.prototype)
 }
 
 /**
@@ -130,16 +282,25 @@ export class CharacterController {
 
   // Telemetry & metrics
   private onTelemetry?: (telemetry: Partial<CharacterTelemetry>) => void
-  private onError?: (error: string) => void
+  private onError?: (error: string, category?: GraphicsErrorCategory) => void
   private frameCount: number = 0
   private lastFpsCheck: number = 0
   private currentFps: number = 60
+
+  // Lifecycle & Context Loss guards
+  private isDisposed: boolean = false
+  private isContextLost: boolean = false
+  private lastLoadedBuffer: ArrayBuffer | null = null
 
   constructor(canvas: HTMLCanvasElement, options: CharacterControllerOptions = {}) {
     this.canvas = canvas
     this.onTelemetry = options.onTelemetry
     this.onError = options.onError
     this.timer = new THREE.Timer()
+
+    // Context loss event handling
+    this.canvas.addEventListener('webglcontextlost', this.handleContextLost, false)
+    this.canvas.addEventListener('webglcontextrestored', this.handleContextRestored, false)
 
     // 1. Accessibility: Detect prefers-reduced-motion preference
     if (typeof window !== 'undefined' && window.matchMedia) {
@@ -308,7 +469,7 @@ export class CharacterController {
   }
 
   private createRenderer(): THREE.WebGLRenderer | null {
-    patchShaderPrecisionSafely()
+    patchWebGLPrototypesSafely()
 
     try {
       const r = new THREE.WebGLRenderer({
@@ -322,10 +483,47 @@ export class CharacterController {
       return r
     } catch (err) {
       const originalMsg = err instanceof Error ? err.message : String(err)
+      let category: GraphicsErrorCategory = 'renderer_init_failed'
+      const lower = originalMsg.toLowerCase()
+      if (lower.includes('hardware acceleration') || lower.includes('policy')) {
+        category = 'gpu_unavailable'
+      } else if (lower.includes('webgl 2 is not supported') || lower.includes('not supported')) {
+        category = 'webgl2_unsupported'
+      }
       const fatalMsg = `WebGL initialization failed: ${originalMsg}`
       console.error('[CharacterController]', fatalMsg)
-      if (this.onError) this.onError(fatalMsg)
+      if (this.onError) this.onError(fatalMsg, category)
       return null
+    }
+  }
+
+  private handleContextLost = (event: Event): void => {
+    event.preventDefault()
+    this.isContextLost = true
+    if (this.animFrameId !== null) {
+      cancelAnimationFrame(this.animFrameId)
+      this.animFrameId = null
+    }
+    const errMsg = 'WebGL graphics context was lost (GPU reset). Waiting for restoration...'
+    console.warn('[CharacterController]', errMsg)
+    if (this.onError) this.onError(errMsg, 'context_lost')
+  }
+
+  private handleContextRestored = (): void => {
+    console.info('[CharacterController] WebGL context restored. Rebuilding scene...')
+    this.isContextLost = false
+    this.renderer = this.createRenderer()
+    if (this.renderer) {
+      if (this.mode === 'vrm' && this.lastLoadedBuffer) {
+        this.loadModelFromBuffer(this.lastLoadedBuffer, this.vrmMetaInfo?.title || 'Custom VRM').catch(() => {
+          this.resetToProceduralFallback()
+        })
+      } else {
+        this.resetToProceduralFallback()
+      }
+      if (!this.isPaused && !this.isDisposed) {
+        this.animate()
+      }
     }
   }
 
@@ -455,6 +653,8 @@ export class CharacterController {
       this.handleLoadError(err)
       throw new Error(err)
     }
+
+    this.lastLoadedBuffer = targetBuffer
 
     const loader = new GLTFLoader()
     loader.register((parser) => new VRMLoaderPlugin(parser))
@@ -653,7 +853,7 @@ export class CharacterController {
     console.error('[CharacterController] VRM Load Error:', errorText)
     this.resetToProceduralFallback()
     if (this.onError) {
-      this.onError(errorText)
+      this.onError(errorText, 'vrm_load_failed')
     }
     this.notifyTelemetry({ error: errorText })
   }
@@ -699,7 +899,7 @@ export class CharacterController {
 
   // --- Animation Loop ---
   private animate = (): void => {
-    if (!this.renderer || this.isPaused) return
+    if (!this.renderer || this.isPaused || this.isDisposed || this.isContextLost) return
     this.animFrameId = requestAnimationFrame(this.animate)
 
     this.renderFrame()
@@ -939,10 +1139,15 @@ export class CharacterController {
 
   // --- Teardown & Resource Disposal ---
   public dispose(): void {
+    this.isDisposed = true
+
     if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId)
       this.animFrameId = null
     }
+
+    this.canvas.removeEventListener('webglcontextlost', this.handleContextLost)
+    this.canvas.removeEventListener('webglcontextrestored', this.handleContextRestored)
 
     document.removeEventListener('visibilitychange', this.handleVisibilityChange)
 

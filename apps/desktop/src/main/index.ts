@@ -6,11 +6,11 @@ import { registerIpcHandlers } from './ipc'
 import { createBackendSupervisor } from './supervisor'
 
 // Hardware acceleration & WebGL switches for Three.js & VRM 3D rendering
+// Note: Chromium on Windows uses D3D11 ANGLE natively. Do not force generic 'use-gl=angle'
+// without backend, as it can cause null driver string parameters or context failures.
 app.commandLine.appendSwitch('ignore-gpu-blocklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
-app.commandLine.appendSwitch('enable-webgl')
-app.commandLine.appendSwitch('use-gl', 'angle')
 
 let mainWindow: BrowserWindow | null = null
 const supervisor = createBackendSupervisor(8000)

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { CharacterController } from './CharacterController'
+import { CharacterController, GraphicsErrorCategory } from './CharacterController'
 import { AssistantState, CharacterTelemetry } from '../../types'
 import { useAura } from '../../context/AuraContext'
 import { AlertCircle, Loader2 } from 'lucide-react'
@@ -32,7 +32,8 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
   }
   const activeAnalyser = speechAnalyser !== undefined ? speechAnalyser : auraAnalyser
 
-  const [webglError, setWebglError] = useState<string | null>(null)
+  const [webglError, setWebglError] = useState<{ message: string; category?: GraphicsErrorCategory } | null>(null)
+  const [retryCount, setRetryCount] = useState<number>(0)
   const [isLoadingModel, setIsLoadingModel] = useState<boolean>(false)
   const [modelError, setModelError] = useState<string | null>(null)
 
@@ -52,9 +53,15 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
     try {
       const controller = new CharacterController(canvasRef.current, {
         onTelemetry: handleTelemetry,
-        onError: (err) => {
-          if (err.includes('WebGL initialization failed')) {
-            setWebglError(err)
+        onError: (err, category) => {
+          if (
+            err.includes('WebGL initialization failed') ||
+            category === 'gpu_unavailable' ||
+            category === 'webgl2_unsupported' ||
+            category === 'renderer_init_failed' ||
+            category === 'context_lost'
+          ) {
+            setWebglError({ message: err, category })
           } else {
             setModelError(err)
           }
@@ -93,10 +100,11 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
         controllerRef.current = null
       }
     } catch (err) {
-      setWebglError(`WebGL is not supported or failed to initialize: ${err}`)
+      const errMsg = `WebGL is not supported or failed to initialize: ${err instanceof Error ? err.message : String(err)}`
+      setWebglError({ message: errMsg, category: 'unknown_exception' })
       return undefined
     }
-  }, [handleTelemetry])
+  }, [handleTelemetry, retryCount])
 
   // Sync Assistant State
   useEffect(() => {
@@ -269,19 +277,41 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
           style={{
             padding: '24px',
             textAlign: 'center',
-            maxWidth: '380px',
+            maxWidth: '420px',
             background: 'rgba(255, 255, 255, 0.03)',
             borderRadius: '12px',
-            border: '1px solid rgba(229, 49, 112, 0.3)'
+            border: '1px solid rgba(229, 49, 112, 0.3)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 15
           }}
         >
           <AlertCircle style={{ width: '36px', height: '36px', color: '#e53170', margin: '0 auto 12px' }} />
           <h4 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
             WebGL Acceleration Unavailable
           </h4>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-            {webglError}
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '14px' }}>
+            {webglError.message}
           </p>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                setWebglError(null)
+                setRetryCount((c) => c + 1)
+              }}
+              style={{
+                background: 'rgba(0, 242, 254, 0.15)',
+                border: '1px solid rgba(0, 242, 254, 0.4)',
+                color: '#00f2fe',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Retry WebGL
+            </button>
+          </div>
         </div>
       )}
     </div>

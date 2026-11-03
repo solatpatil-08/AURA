@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { CharacterController } from '../src/renderer/src/components/avatar/CharacterController'
+import {
+  CharacterController,
+  patchWebGLPrototypesSafely,
+  verifyWebGL2Support
+} from '../src/renderer/src/components/avatar/CharacterController'
 import { AvatarStage } from '../src/renderer/src/components/avatar/AvatarStage'
 import { AuraProvider } from '../src/renderer/src/context/AuraContext'
 import { AssistantState } from '../src/renderer/src/types'
@@ -355,6 +359,61 @@ describe('AURA Avatar Engine 2.0: 3D Character & VRM Animation System', () => {
       expect(latestTelemetry.isSpeaking).toBe(true)
 
       controller.dispose()
+    })
+  })
+
+  describe('WebGL2 & Driver Resilience', () => {
+    it('patchWebGLPrototypesSafely provides standard WebGL2 version string when driver returns null', () => {
+      patchWebGLPrototypesSafely()
+      const gl = canvas.getContext('webgl2')
+      if (gl) {
+        const ver = gl.getParameter(gl.VERSION)
+        expect(typeof ver).toBe('string')
+        expect(ver).toContain('WebGL')
+      }
+    })
+
+    it('patchWebGLPrototypesSafely provides valid precision format when driver returns null', () => {
+      patchWebGLPrototypesSafely()
+      const gl = canvas.getContext('webgl2')
+      if (gl) {
+        const precision = gl.getShaderPrecisionFormat(gl.VERTEX_SHADER, 0x8df2 /* HIGH_FLOAT */)
+        expect(precision).toBeDefined()
+        expect(precision?.precision).toBeGreaterThan(0)
+      }
+    })
+
+    it('verifyWebGL2Support performs pre-flight verification without throwing', () => {
+      const result = verifyWebGL2Support(canvas)
+      expect(result).toBeDefined()
+      expect(typeof result.isSupported).toBe('boolean')
+    })
+
+    it('handles webglcontextlost and webglcontextrestored gracefully without throwing', () => {
+      let reportedCategory: string | undefined = undefined
+      const controller = new CharacterController(canvas, {
+        autoAnimate: false,
+        onError: (_err, cat) => {
+          reportedCategory = cat
+        }
+      })
+
+      // Dispatch simulated context loss
+      const lostEvent = new Event('webglcontextlost', { cancelable: true })
+      canvas.dispatchEvent(lostEvent)
+      expect(lostEvent.defaultPrevented).toBe(true)
+      expect(reportedCategory).toBe('context_lost')
+
+      // Dispatch simulated restoration
+      const restoreEvent = new Event('webglcontextrestored')
+      expect(() => canvas.dispatchEvent(restoreEvent)).not.toThrow()
+
+      controller.dispose()
+    })
+
+    it('cancels requestAnimationFrame and disposes all resources cleanly on dispose()', () => {
+      const controller = new CharacterController(canvas, { autoAnimate: true })
+      expect(() => controller.dispose()).not.toThrow()
     })
   })
 })

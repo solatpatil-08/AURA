@@ -17,6 +17,11 @@ export interface IAuraDesktopBridge {
   getStoredVrmCharacter: () => Promise<string | null>
   resetVrmCharacter: () => Promise<void>
   loadVrmBinary: (filePath: string) => Promise<ArrayBuffer>
+  getGpuDiagnostics: () => Promise<{
+    hardwareAccelerationEnabled: boolean
+    featureStatus: Record<string, unknown>
+    gpuInfo?: Record<string, unknown>
+  }>
 }
 
 const auraAPI: IAuraDesktopBridge = {
@@ -46,6 +51,9 @@ const auraAPI: IAuraDesktopBridge = {
   },
   loadVrmBinary: async (filePath: string) => {
     return ipcRenderer.invoke('vrm:load-binary', filePath)
+  },
+  getGpuDiagnostics: async () => {
+    return ipcRenderer.invoke('system:get-gpu-diagnostics')
   }
 }
 

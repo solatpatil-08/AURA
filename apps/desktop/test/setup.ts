@@ -215,6 +215,11 @@ Object.defineProperty(window, 'auraAPI', {
     saveVrmCharacter: vi.fn().mockImplementation((p: string) => Promise.resolve(`C:\\Users\\user\\AppData\\Roaming\\aura\\characters\\${p.split(/[/\\]/).pop()}`)),
     getStoredVrmCharacter: vi.fn().mockResolvedValue(null),
     resetVrmCharacter: vi.fn().mockResolvedValue(undefined),
+    getGpuDiagnostics: vi.fn().mockResolvedValue({
+      hardwareAccelerationEnabled: true,
+      featureStatus: { gpu_compositing: 'enabled_on', webgl: 'enabled_on', webgl2: 'enabled_on' },
+      gpuInfo: { basic: true }
+    }),
     loadVrmBinary: vi.fn().mockImplementation((filePath: string) => {
       if (filePath.includes('invalid') || filePath.includes('corrupt')) {
         return Promise.reject(new Error('VRM file does not exist or is corrupted'))
