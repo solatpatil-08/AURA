@@ -13,16 +13,27 @@ import {
   FolderOpen,
   RotateCcw,
   Activity,
-  Bot
+  Bot,
+  MessageSquare
 } from 'lucide-react'
 
 export const AvatarStage: React.FC = () => {
-  const { assistantState, setAssistantState, isSpeaking, settings, updateSettings } = useAura()
+  const { assistantState, setAssistantState, isSpeaking, settings, updateSettings, messages } = useAura()
   const [telemetry, setTelemetry] = useState<Partial<CharacterTelemetry>>({
     mode: 'procedural',
     modelName: 'Holographic Fallback Core',
     fps: 60
   })
+
+  // Derive contextual greeting based on local time
+  const getGreeting = (): string => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good Morning'
+    if (hour < 18) return 'Good Afternoon'
+    return 'Good Evening'
+  }
+
+  const latestMessage = messages.length > 0 ? messages[messages.length - 1] : null
 
   const stateDetails: Record<
     AssistantState,
@@ -36,56 +47,56 @@ export const AvatarStage: React.FC = () => {
   > = {
     idle: {
       color: '#00f2fe',
-      bgGlow: 'radial-gradient(circle, rgba(0, 242, 254, 0.18) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(0, 242, 254, 0.22) 0%, rgba(127, 90, 240, 0.08) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Sparkles,
       label: 'Idle',
       statusText: 'Core Stable • Ambient Monitoring'
     },
     listening: {
       color: '#2cb67d',
-      bgGlow: 'radial-gradient(circle, rgba(44, 182, 125, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(44, 182, 125, 0.26) 0%, rgba(0, 242, 254, 0.1) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Radio,
       label: 'Listening',
       statusText: 'Audio Capture Active • Listening'
     },
     transcribing: {
       color: '#f5a623',
-      bgGlow: 'radial-gradient(circle, rgba(245, 166, 35, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(245, 166, 35, 0.26) 0%, rgba(127, 90, 240, 0.1) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Activity,
       label: 'Transcribing',
       statusText: 'Local faster-whisper Speech Recognition Active'
     },
     thinking: {
       color: '#7f5af0',
-      bgGlow: 'radial-gradient(circle, rgba(127, 90, 240, 0.25) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(127, 90, 240, 0.3) 0%, rgba(79, 172, 254, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Cpu,
       label: 'Thinking',
       statusText: `Neural Reasoning Active • ${settings.modelName}`
     },
     responding: {
       color: '#4facfe',
-      bgGlow: 'radial-gradient(circle, rgba(79, 172, 254, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(79, 172, 254, 0.26) 0%, rgba(0, 242, 254, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Volume2,
       label: 'Responding',
       statusText: 'Synthesizing Local Speech & Visemes'
     },
     speaking: {
       color: '#4facfe',
-      bgGlow: 'radial-gradient(circle, rgba(79, 172, 254, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(79, 172, 254, 0.26) 0%, rgba(0, 242, 254, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Volume2,
       label: 'Speaking',
       statusText: 'Speaking Voice Output & Visemes Active'
     },
     executing: {
       color: '#ff8906',
-      bgGlow: 'radial-gradient(circle, rgba(255, 137, 6, 0.22) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(255, 137, 6, 0.26) 0%, rgba(245, 166, 35, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: Layers,
       label: 'Executing',
       statusText: 'Operating Scoped Tools & Tasks'
     },
     waiting_confirmation: {
       color: '#ffd166',
-      bgGlow: 'radial-gradient(circle, rgba(255, 209, 102, 0.25) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(255, 209, 102, 0.3) 0%, rgba(255, 137, 6, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: ShieldAlert,
       label: 'Confirmation',
       statusText: 'Review Gate Engaged • Approval Required'
@@ -99,7 +110,7 @@ export const AvatarStage: React.FC = () => {
     },
     error: {
       color: '#e53170',
-      bgGlow: 'radial-gradient(circle, rgba(229, 49, 112, 0.25) 0%, rgba(8, 10, 15, 0) 70%)',
+      bgGlow: 'radial-gradient(circle, rgba(229, 49, 112, 0.3) 0%, rgba(127, 90, 240, 0.12) 45%, rgba(8, 10, 15, 0) 70%)',
       icon: AlertTriangle,
       label: 'Error',
       statusText: 'Anomaly Intercepted • Safe State'
@@ -162,20 +173,50 @@ export const AvatarStage: React.FC = () => {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        background: '#07090e'
+        background: '#06080d'
       }}
     >
-      {/* Background radial glow reacting to assistant state */}
+      {/* Dynamic atmospheric radial backdrop */}
       <div
         style={{
           position: 'absolute',
-          top: '50%',
+          top: '45%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '650px',
-          height: '650px',
+          width: '780px',
+          height: '780px',
           background: currentVisual.bgGlow,
-          transition: 'background 600ms ease',
+          transition: 'background 700ms cubic-bezier(0.4, 0, 0.2, 1)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      />
+
+      {/* Decorative concentric orbital guides */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '45%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '520px',
+          height: '520px',
+          borderRadius: '50%',
+          border: '1px solid rgba(0, 242, 254, 0.05)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          top: '45%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '680px',
+          height: '680px',
+          borderRadius: '50%',
+          border: '1px dashed rgba(127, 90, 240, 0.04)',
           pointerEvents: 'none',
           zIndex: 0
         }}
@@ -186,30 +227,31 @@ export const AvatarStage: React.FC = () => {
         style={{
           position: 'relative',
           zIndex: 5,
-          padding: '16px 24px',
+          padding: '14px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-          background: 'rgba(7, 9, 14, 0.65)',
-          backdropFilter: 'blur(10px)'
+          background: 'rgba(8, 10, 15, 0.7)',
+          backdropFilter: 'blur(16px)'
         }}
       >
         {/* Model Info Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.04)',
               border: `1px solid ${currentVisual.color}40`,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              boxShadow: `0 0 12px ${currentVisual.color}25`
             }}
           >
-            <Bot style={{ width: '18px', height: '18px', color: currentVisual.color }} />
+            <Bot style={{ width: '20px', height: '20px', color: currentVisual.color }} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -219,10 +261,10 @@ export const AvatarStage: React.FC = () => {
               <span
                 style={{
                   fontSize: '10px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  padding: '2px 6px',
+                  padding: '2px 8px',
                   borderRadius: '4px',
                   background: telemetry.mode === 'vrm' ? 'rgba(44, 182, 125, 0.2)' : 'rgba(0, 242, 254, 0.15)',
                   color: telemetry.mode === 'vrm' ? '#2cb67d' : '#00f2fe',
@@ -232,7 +274,7 @@ export const AvatarStage: React.FC = () => {
                 {telemetry.mode === 'vrm' ? 'VRM Character' : 'Holographic Fallback'}
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
               {telemetry.mode === 'vrm' && telemetry.vrmMeta?.author
                 ? `Author: ${telemetry.vrmMeta.author} • ${telemetry.gpuRenderer || 'Hardware WebGL'}`
                 : `${telemetry.gpuRenderer || 'Hardware WebGL'} • Three.js v0.186 & @pixiv/three-vrm v3.5`}
@@ -242,7 +284,7 @@ export const AvatarStage: React.FC = () => {
 
         {/* Telemetry Stats & Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Active GPU Renderer Badge (Phase 8) */}
+          {/* Active GPU Renderer Badge */}
           {telemetry.gpuRenderer && telemetry.gpuRenderer !== 'Detecting...' && (
             <div
               style={{
@@ -257,9 +299,7 @@ export const AvatarStage: React.FC = () => {
                 border: telemetry.gpuRenderer.toLowerCase().includes('nvidia')
                   ? '1px solid rgba(118, 185, 0, 0.4)'
                   : '1px solid rgba(255, 255, 255, 0.08)',
-                color: telemetry.gpuRenderer.toLowerCase().includes('nvidia')
-                  ? '#76b900'
-                  : 'var(--text-muted)',
+                color: telemetry.gpuRenderer.toLowerCase().includes('nvidia') ? '#76b900' : 'var(--text-muted)',
                 fontSize: '11px',
                 fontFamily: 'monospace'
               }}
@@ -269,7 +309,7 @@ export const AvatarStage: React.FC = () => {
             </div>
           )}
 
-          {/* Context Loss Counter (Phase 8) */}
+          {/* Context Loss Counter */}
           {typeof telemetry.contextLostCount === 'number' && telemetry.contextLostCount > 0 && (
             <div
               style={{
@@ -288,6 +328,7 @@ export const AvatarStage: React.FC = () => {
               <span>GPU Resets: {telemetry.contextLostCount}</span>
             </div>
           )}
+
           {/* Expressions Count Pill for VRM */}
           {telemetry.mode === 'vrm' && typeof telemetry.expressionsCount === 'number' && (
             <div
@@ -400,7 +441,7 @@ export const AvatarStage: React.FC = () => {
         </div>
       </header>
 
-      {/* Primary 3D Character Viewport */}
+      {/* Primary 3D Character Viewport with Floating Greeting & Transcript Card */}
       <main
         style={{
           flex: 1,
@@ -411,12 +452,109 @@ export const AvatarStage: React.FC = () => {
           zIndex: 1
         }}
       >
+        {/* Floating Greeting Pill */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '6px 14px',
+            borderRadius: '9999px',
+            background: 'rgba(13, 16, 23, 0.75)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(12px)',
+            color: 'var(--text-secondary)',
+            fontSize: '12px',
+            zIndex: 4,
+            pointerEvents: 'none'
+          }}
+        >
+          <Sparkles style={{ width: '13px', height: '13px', color: '#00f2fe' }} />
+          <span>{getGreeting()} • AURA Core Operational</span>
+        </div>
+
+        {/* 3D Hardware Canvas */}
         <CharacterCanvas
           assistantState={assistantState}
           isSpeaking={isSpeaking}
           vrmModelPath={settings.vrmModelPath}
           onTelemetry={setTelemetry}
         />
+
+        {/* Floating Transcript / Companion Speech Bubble (Bottom-Center above controls) */}
+        {latestMessage && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              maxWidth: '560px',
+              width: '90%',
+              padding: '12px 18px',
+              borderRadius: '12px',
+              background: 'rgba(13, 16, 23, 0.85)',
+              border: `1px solid ${latestMessage.role === 'user' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(127, 90, 240, 0.3)'}`,
+              backdropFilter: 'blur(16px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+              zIndex: 4,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '12px'
+            }}
+          >
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background:
+                  latestMessage.role === 'user'
+                    ? 'rgba(0, 242, 254, 0.15)'
+                    : 'rgba(127, 90, 240, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: latestMessage.role === 'user' ? '#00f2fe' : '#a78bfa',
+                flexShrink: 0
+              }}
+            >
+              {latestMessage.role === 'user' ? (
+                <MessageSquare style={{ width: '14px', height: '14px' }} />
+              ) : (
+                <Bot style={{ width: '14px', height: '14px' }} />
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: latestMessage.role === 'user' ? '#00f2fe' : '#a78bfa'
+                  }}
+                >
+                  {latestMessage.role === 'user' ? 'You' : 'AURA'}
+                </span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{latestMessage.timestamp}</span>
+              </div>
+              <p
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.45,
+                  margin: 0,
+                  maxHeight: '72px',
+                  overflowY: 'auto'
+                }}
+              >
+                {latestMessage.content}
+              </p>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Bottom Telemetry & State Control Bar */}
@@ -424,13 +562,13 @@ export const AvatarStage: React.FC = () => {
         style={{
           position: 'relative',
           zIndex: 5,
-          padding: '16px 24px',
+          padding: '14px 24px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '12px',
-          background: 'rgba(7, 9, 14, 0.75)',
-          backdropFilter: 'blur(10px)',
+          gap: '10px',
+          background: 'rgba(8, 10, 15, 0.75)',
+          backdropFilter: 'blur(16px)',
           borderTop: '1px solid rgba(255, 255, 255, 0.05)'
         }}
       >
@@ -455,9 +593,7 @@ export const AvatarStage: React.FC = () => {
 
         {/* State Simulation Bar for Interactive Testing */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '4px' }}>
-            Test State:
-          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '4px' }}>Test State:</span>
           {testStates.map((st) => {
             const isActive = assistantState === st
             const info = stateDetails[st]

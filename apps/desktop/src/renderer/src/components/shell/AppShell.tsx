@@ -4,6 +4,7 @@ import { TitleBar } from './TitleBar'
 import { Sidebar } from './Sidebar'
 import { ConversationArea } from '../chat/ConversationArea'
 import { AvatarStage } from '../avatar/AvatarStage'
+import { SkillsScreen } from '../skills/SkillsScreen'
 import { TaskActivityPanel } from '../tasks/TaskActivityPanel'
 import { ConversationHistory } from '../history/ConversationHistory'
 import { MemoryReviewScreen } from '../memory/MemoryReviewScreen'
@@ -11,7 +12,7 @@ import { SettingsScreen } from '../settings/SettingsScreen'
 import { SystemStatusBadge } from '../status/SystemStatusBadge'
 
 export const AppShell: React.FC = () => {
-  const { activeTab } = useAura()
+  const { activeTab, isTaskPanelOpen } = useAura()
 
   return (
     <div
@@ -41,8 +42,15 @@ export const AppShell: React.FC = () => {
             </>
           )}
 
-          {activeTab === 'stage' && <AvatarStage />}
-          {activeTab === 'tasks' && <TaskActivityPanel />}
+          {(activeTab === 'stage' || activeTab === 'home') && (
+            <>
+              <AvatarStage />
+              {isTaskPanelOpen && <TaskActivityPanel />}
+            </>
+          )}
+
+          {activeTab === 'skills' && <SkillsScreen />}
+          {(activeTab === 'tasks' || activeTab === 'activity') && <TaskActivityPanel />}
           {activeTab === 'memory' && <MemoryReviewScreen />}
           {activeTab === 'history' && <ConversationHistory />}
           {activeTab === 'settings' && <SettingsScreen />}
