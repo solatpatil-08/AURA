@@ -177,75 +177,78 @@ function getSafeParameterFallback(pname: number): unknown {
  * Directly wraps a WebGL context instance so that calls to getShaderPrecisionFormat
  * or getParameter NEVER return null or invalid values that would crash Three.js WebGLCapabilities / WebGLState.
  */
-export function wrapWebGLContextInstance(gl: any): void {
-  if (!gl || gl.__auraWrapped) return
+/**
+ * Wraps any WebGL context in an ECMAScript Proxy that intercepts
+ * getShaderPrecisionFormat and getParameter to guarantee spec-compliant non-null returns.
+ * Completely immune to Blink WebIDL non-configurable/non-writable restrictions.
+ */
+export function createSafeWebGLProxy<T extends WebGLRenderingContext | WebGL2RenderingContext>(
+  gl: T
+): T {
+  if (!gl || (gl as any).__auraProxyWrapped) return gl
 
-  // 1. Wrap getShaderPrecisionFormat
-  const origPrecision = gl.getShaderPrecisionFormat ? gl.getShaderPrecisionFormat.bind(gl) : null
-  try {
-    Object.defineProperty(gl, 'getShaderPrecisionFormat', {
-      value: function (shaderType: number, precisionType: number) {
-        try {
-          if (origPrecision) {
-            const res = origPrecision(shaderType, precisionType)
-            if (res && typeof res.precision === 'number' && res.precision > 0) {
-              return res
-            }
-          }
-        } catch {
-          // Fallback
-        }
-        return DEFAULT_SHADER_PRECISION
-      },
-      writable: true,
-      configurable: true
-    })
-  } catch {
-    // If defineProperty is blocked, fallback to direct assignment
-    try {
-      gl.getShaderPrecisionFormat = function () {
-        return DEFAULT_SHADER_PRECISION
-      }
-    } catch {
-      // Ignore
-    }
-  }
+  return new Proxy(gl, {
+    get(target: any, prop: string | symbol, _receiver: any) {
+      if (prop === '__auraProxyWrapped' || prop === '__auraWrapped') return true
 
-  // 2. Wrap getParameter
-  const origGetParameter = gl.getParameter ? gl.getParameter.bind(gl) : null
-  try {
-    Object.defineProperty(gl, 'getParameter', {
-      value: function (pname: number) {
-        try {
-          if (origGetParameter) {
-            const res = origGetParameter(pname)
-            if (res !== null && res !== undefined) {
-              if (
-                pname === 0x1F02 /* VERSION */ ||
-                pname === 0x8B8C /* SHADING_LANGUAGE_VERSION */ ||
-                pname === 0x1F00 /* VENDOR */ ||
-                pname === 0x1F01 /* RENDERER */
-              ) {
-                if (typeof res === 'string' && res.length > 0) return res
-              } else {
+      // 1. Intercept getShaderPrecisionFormat to NEVER return null
+      if (prop === 'getShaderPrecisionFormat') {
+        return function (shaderType: number, precisionType: number) {
+          try {
+            if (typeof target.getShaderPrecisionFormat === 'function') {
+              const res = target.getShaderPrecisionFormat(shaderType, precisionType)
+              if (res && typeof res.precision === 'number' && res.precision > 0) {
                 return res
               }
             }
+          } catch {
+            // Driver threw; return safe spec fallback
           }
-        } catch {
-          // Fallback
+          return DEFAULT_SHADER_PRECISION
         }
-        return getSafeParameterFallback(pname)
-      },
-      writable: true,
-      configurable: true
-    })
-  } catch {
-    // Ignore
-  }
+      }
 
-  gl.__auraWrapped = true
+      // 2. Intercept getParameter to NEVER return null for required hardware strings & limits
+      if (prop === 'getParameter') {
+        return function (pname: number) {
+          try {
+            if (typeof target.getParameter === 'function') {
+              const res = target.getParameter(pname)
+              if (res !== null && res !== undefined) {
+                if (
+                  pname === 0x1F02 /* VERSION */ ||
+                  pname === 0x8B8C /* SHADING_LANGUAGE_VERSION */ ||
+                  pname === 0x1F00 /* VENDOR */ ||
+                  pname === 0x1F01 /* RENDERER */
+                ) {
+                  if (typeof res === 'string' && res.length > 0) return res
+                } else {
+                  return res
+                }
+              }
+            }
+          } catch {
+            // Driver threw; return safe fallback
+          }
+          return getSafeParameterFallback(pname)
+        }
+      }
+
+      // 3. Delegate all other properties & methods to target, preserving native this binding
+      const val = Reflect.get(target, prop, target)
+      if (typeof val === 'function') {
+        return val.bind(target)
+      }
+      return val
+    }
+  })
 }
+
+export function wrapWebGLContextInstance(gl: any): any {
+  if (!gl) return gl
+  return createSafeWebGLProxy(gl)
+}
+
 
 /**
  * Defensive patch for Chromium / ANGLE / Windows graphics drivers where WebGL queries
@@ -272,7 +275,7 @@ export function patchWebGLPrototypesSafely(): void {
           // In test environments or headless, getContext may throw
         }
         if (ctx && (contextId === 'webgl2' || contextId === 'webgl' || contextId === 'experimental-webgl')) {
-          wrapWebGLContextInstance(ctx)
+          return createSafeWebGLProxy(ctx)
         }
         return ctx
       }
@@ -630,23 +633,21 @@ export class CharacterController {
       }
 
       // Explicitly acquire and defensively wrap context instance
-      let gl: WebGL2RenderingContext | WebGLRenderingContext | null = null
+      let rawGl: WebGL2RenderingContext | WebGLRenderingContext | null = null
       try {
-        gl = this.canvas.getContext('webgl2', contextAttributes)
-        if (!gl) {
-          gl = this.canvas.getContext('webgl', contextAttributes)
+        rawGl = this.canvas.getContext('webgl2', contextAttributes)
+        if (!rawGl) {
+          rawGl = this.canvas.getContext('webgl', contextAttributes)
         }
       } catch (e) {
         console.warn('[CharacterController] Direct context acquisition error:', e)
       }
 
-      if (gl) {
-        wrapWebGLContextInstance(gl)
-      }
+      const safeGl = rawGl ? createSafeWebGLProxy(rawGl) : null
 
       const r = new THREE.WebGLRenderer({
         canvas: this.canvas,
-        context: gl || undefined,
+        context: (safeGl as any) || undefined,
         alpha: true,
         antialias: false,
         depth: true,
@@ -659,7 +660,7 @@ export class CharacterController {
       r.setPixelRatio(1.0) // 1:1 hardware pixel ratio without unnecessary 2x retina oversampling
 
       // Query active GPU renderer and vendor
-      const activeGl = gl || (typeof (r as any).getContext === 'function' ? (r as any).getContext() : null)
+      const activeGl = safeGl || (typeof (r as any).getContext === 'function' ? (r as any).getContext() : null)
       if (activeGl) {
         const dbg = activeGl.getExtension('WEBGL_debug_renderer_info')
         if (dbg) {

@@ -6,7 +6,7 @@ import {
   VRMExpressionPresetName,
   VRMHumanBoneName
 } from '@pixiv/three-vrm'
-import { patchWebGLPrototypesSafely, wrapWebGLContextInstance } from './CharacterController'
+import { patchWebGLPrototypesSafely, wrapWebGLContextInstance, createSafeWebGLProxy } from './CharacterController'
 
 /**
  * Phase 3 Conservative WebGL Attributes:
@@ -99,6 +99,7 @@ export function runWebGL2Diagnostic(canvas: HTMLCanvasElement): WebGLDiagnosticR
     }
   }
 
+  if (gl) gl = createSafeWebGLProxy(gl);
   if (!gl) {
     return {
       isSupported: false,
@@ -185,9 +186,9 @@ export async function runIsolatedRenderingPipeline(
       if (!gl || gl.isContextLost()) {
         throw new Error('WebGL2 context creation failed or context is lost.')
       }
-      wrapWebGLContextInstance(gl)
+      gl = wrapWebGLContextInstance(gl)
       recordStage('A', 'WebGL2 Context Creation', true, undefined, {
-        version: gl.getParameter(gl.VERSION)
+        version: gl ? gl.getParameter(gl.VERSION) : 'Unknown'
       })
     } catch (err) {
       recordStage('A', 'WebGL2 Context Creation', false, err instanceof Error ? err.message : String(err))
