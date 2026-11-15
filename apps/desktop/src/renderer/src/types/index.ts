@@ -187,4 +187,4 @@ export interface MemoryItem {
   metadata_json?: string | null
 }
 
-export type NavTab = 'chat' | 'stage' | 'tasks' | 'memory' | 'history' | 'settings'
+export type NavTab = 'home' | 'chat' | 'skills' | 'activity' | 'memory' | 'history' | 'settings' | 'stage' | 'tasks'

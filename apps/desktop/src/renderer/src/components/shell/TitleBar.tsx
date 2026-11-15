@@ -1,10 +1,10 @@
 import React from 'react'
-import { Minus, Square, X, Shield, Activity } from 'lucide-react'
+import { Minus, Square, X, Shield, Activity, Settings as SettingsIcon, Cpu } from 'lucide-react'
 import { StateBadge } from '../common/StateBadge'
 import { useAura } from '../../context/AuraContext'
 
 export const TitleBar: React.FC = () => {
-  const { assistantState, toggleTaskPanel, isTaskPanelOpen } = useAura()
+  const { assistantState, toggleTaskPanel, isTaskPanelOpen, settings, setActiveTab } = useAura()
 
   const handleMinimize = (): void => {
     if (window.auraAPI?.minimize) {
@@ -26,20 +26,31 @@ export const TitleBar: React.FC = () => {
 
   return (
     <header
-      style={{
-        height: '42px',
-        background: 'var(--bg-app)',
-        borderBottom: '1px solid var(--border-subtle)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 16px',
-        WebkitAppRegion: 'drag',
-        userSelect: 'none'
-      } as React.CSSProperties}
+      style={
+        {
+          height: '42px',
+          background: 'var(--bg-app)',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 16px',
+          WebkitAppRegion: 'drag',
+          userSelect: 'none'
+        } as React.CSSProperties
+      }
     >
       {/* Brand Title & Security Tag */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      <div
+        style={
+          {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties
+        }
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
@@ -50,10 +61,24 @@ export const TitleBar: React.FC = () => {
               boxShadow: '0 0 8px var(--accent-cyan-glow)'
             }}
           />
-          <span style={{ fontWeight: 700, fontSize: '13px', letterSpacing: '0.08em', color: 'var(--text-primary)' }}>
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: '13px',
+              letterSpacing: '0.08em',
+              color: 'var(--text-primary)'
+            }}
+          >
             AURA
           </span>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span
+            style={{
+              fontSize: '10px',
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}
+          >
             Desktop v0.1.0
           </span>
         </div>
@@ -76,6 +101,26 @@ export const TitleBar: React.FC = () => {
           <Shield style={{ width: '10px', height: '10px' }} />
           <span>Local-First Sandbox</span>
         </div>
+
+        {/* Model Tag */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            background: 'rgba(127, 90, 240, 0.1)',
+            border: '1px solid rgba(127, 90, 240, 0.25)',
+            fontSize: '10px',
+            fontWeight: 600,
+            color: '#a78bfa'
+          }}
+          title={`Active Local Model: ${settings.modelName}`}
+        >
+          <Cpu style={{ width: '10px', height: '10px' }} />
+          <span>{settings.modelName}</span>
+        </div>
       </div>
 
       {/* Center: Interactive Assistant State Indicator */}
@@ -83,8 +128,46 @@ export const TitleBar: React.FC = () => {
         <StateBadge state={assistantState} interactive={true} />
       </div>
 
-      {/* Right Controls: Task Panel Toggle & Window Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      {/* Right Controls: Quick Settings, Task Panel Toggle & Window Buttons */}
+      <div
+        style={
+          {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            WebkitAppRegion: 'no-drag'
+          } as React.CSSProperties
+        }
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          aria-label="Open System Settings"
+          title="Settings & Configuration"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            background: 'transparent',
+            border: '1px solid transparent',
+            color: 'var(--text-muted)',
+            fontSize: '11px',
+            transition: 'all 150ms ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = 'var(--text-primary)'
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = 'var(--text-muted)'
+            e.currentTarget.style.background = 'transparent'
+          }}
+        >
+          <SettingsIcon style={{ width: '13px', height: '13px' }} />
+        </button>
+
         <button
           type="button"
           onClick={toggleTaskPanel}
@@ -96,8 +179,8 @@ export const TitleBar: React.FC = () => {
             gap: '6px',
             padding: '4px 10px',
             borderRadius: '6px',
-            background: isTaskPanelOpen ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-            border: '1px solid var(--border-subtle)',
+            background: isTaskPanelOpen ? 'rgba(0, 242, 254, 0.12)' : 'transparent',
+            border: `1px solid ${isTaskPanelOpen ? 'rgba(0, 242, 254, 0.3)' : 'var(--border-subtle)'}`,
             color: isTaskPanelOpen ? 'var(--accent-cyan)' : 'var(--text-secondary)',
             fontSize: '11px',
             fontWeight: 600

@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --bg-app: #080a0f;
-  --bg-sidebar: #0d1017;
-  --bg-card: #131722;
-  --bg-card-hover: #181d2b;
-  --bg-input: #10141e;
+  --bg-app: #06080d;
+  --bg-sidebar: #0a0d14;
+  --bg-card: #0f131d;
+  --bg-card-hover: #151a27;
+  --bg-input: #0c0f17;
   --border-subtle: rgba(255, 255, 255, 0.07);
   --border-bright: rgba(255, 255, 255, 0.15);
   --border-accent: rgba(0, 242, 254, 0.3);
@@ -101,14 +101,14 @@ textarea:focus {
 
 /* Glassmorphism Classes */
 .glass-panel {
-  background: rgba(19, 23, 34, 0.75);
+  background: rgba(15, 19, 29, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
 }
 
 .glass-panel-elevated {
-  background: rgba(24, 29, 43, 0.85);
+  background: rgba(20, 25, 38, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-bright);
@@ -156,4 +156,15 @@ textarea:focus {
 /* Code block highlight */
 pre, code {
   font-family: var(--font-mono);
+}
+
+/* Reduced Motion Compliance */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
