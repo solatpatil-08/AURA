@@ -191,6 +191,16 @@ export function createSafeWebGLProxy<T extends WebGLRenderingContext | WebGL2Ren
     get(target: any, prop: string | symbol, _receiver: any) {
       if (prop === '__auraProxyWrapped' || prop === '__auraWrapped') return true
 
+      // Guarantee standard WebGL shader constants are spec-compliant numbers
+      if (prop === 'VERTEX_SHADER') return 0x8b31
+      if (prop === 'FRAGMENT_SHADER') return 0x8b30
+      if (prop === 'HIGH_FLOAT') return 0x8df2
+      if (prop === 'MEDIUM_FLOAT') return 0x8df1
+      if (prop === 'LOW_FLOAT') return 0x8df0
+      if (prop === 'HIGH_INT') return 0x8df5
+      if (prop === 'MEDIUM_INT') return 0x8df4
+      if (prop === 'LOW_INT') return 0x8df3
+
       // 1. Intercept getShaderPrecisionFormat to NEVER return null
       if (prop === 'getShaderPrecisionFormat') {
         return function (shaderType: number, precisionType: number) {
@@ -363,6 +373,7 @@ export function patchWebGLPrototypesSafely(): void {
     }
   }
 
+  if ((window as any).WebGLRenderingContextBase) patchChain((window as any).WebGLRenderingContextBase.prototype)
   if (window.WebGLRenderingContext) patchChain(window.WebGLRenderingContext.prototype)
   if (window.WebGL2RenderingContext) patchChain(window.WebGL2RenderingContext.prototype)
 }

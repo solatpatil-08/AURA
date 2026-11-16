@@ -179,16 +179,30 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       }
     }
 
-    // 2. Check local workspace models/vrm directory for aura.vrm
-    const defaultLocalVrm = path.resolve(process.cwd(), 'models/vrm/aura.vrm')
-    if (existsSync(defaultLocalVrm)) {
-      try {
-        await fs.mkdir(targetDir, { recursive: true })
-        const dest = path.join(targetDir, 'aura.vrm')
-        await fs.copyFile(defaultLocalVrm, dest)
-        return dest
-      } catch {
-        return defaultLocalVrm
+    // 2. Check local workspace & bundled directories for aura.vrm
+    const candidatePaths = [
+      path.resolve(process.cwd(), 'models/vrm/aura.vrm'),
+      path.resolve(process.cwd(), '../models/vrm/aura.vrm'),
+      path.resolve(process.cwd(), '../../models/vrm/aura.vrm'),
+      path.resolve(app.getAppPath(), 'models/vrm/aura.vrm'),
+      path.resolve(app.getAppPath(), '../models/vrm/aura.vrm'),
+      path.resolve(app.getAppPath(), '../../models/vrm/aura.vrm'),
+      path.resolve(process.resourcesPath || '', 'models/vrm/aura.vrm'),
+      'C:\\Projects\\AURA\\models\\vrm\\aura.vrm'
+    ]
+
+    for (const candidate of candidatePaths) {
+      if (candidate && existsSync(candidate)) {
+        try {
+          await fs.mkdir(targetDir, { recursive: true })
+          const dest = path.join(targetDir, 'aura.vrm')
+          if (!existsSync(dest)) {
+            await fs.copyFile(candidate, dest)
+          }
+          return dest
+        } catch {
+          return candidate
+        }
       }
     }
 
