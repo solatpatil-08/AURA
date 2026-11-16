@@ -1,0 +1,244 @@
+{
+  "total": 25,
+  "passed": 25,
+  "failed": 0,
+  "success_rate": "100.0%",
+  "results": [
+    {
+      "suite": "TEST 1: OLLAMA",
+      "test": "Ollama Service Availability",
+      "passed": true,
+      "details": "Connected to http://127.0.0.1:11434, found 1 models",
+      "duration_ms": 701.32,
+      "data": [
+        "qwen3.5:4b"
+      ]
+    },
+    {
+      "suite": "TEST 1: OLLAMA",
+      "test": "Local API Connectivity",
+      "passed": true,
+      "details": "API version: 0.40.13",
+      "duration_ms": 331.64,
+      "data": null
+    },
+    {
+      "suite": "TEST 1: OLLAMA",
+      "test": "Model Availability (qwen3.5:4b)",
+      "passed": true,
+      "details": "Configured model installed: True",
+      "duration_ms": 443.17,
+      "data": null
+    },
+    {
+      "suite": "TEST 1: OLLAMA",
+      "test": "Model Inference & Loading",
+      "passed": true,
+      "details": "Output: 'PONG...'",
+      "duration_ms": 5105.6,
+      "data": "PONG"
+    },
+    {
+      "suite": "TEST 1: OLLAMA",
+      "test": "Timeout Handling",
+      "passed": true,
+      "details": "Trapped timeout: OllamaConnectionError",
+      "duration_ms": 4677.78,
+      "data": null
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Greeting",
+      "passed": true,
+      "details": "Generated reply (75 chars): Hello! I'm AURA, your local AI desktop assistant. How can I help you t...",
+      "duration_ms": 6390.06,
+      "data": {
+        "reply_preview": "Hello! I'm AURA, your local AI desktop assistant. How can I help you today?"
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Capabilities Query",
+      "passed": true,
+      "details": "Generated reply (1201 chars): # Capabilities Overview \ud83c\udf1f\n\nAs your local AI desktop assistant, I can h...",
+      "duration_ms": 15212.83,
+      "data": {
+        "reply_preview": "# Capabilities Overview \ud83c\udf1f\n\nAs your local AI desktop assistant, I can help you with:\n\n## \ud83d\udcc1 **File Management**\n- List files and directories in approved workspace locations\n- Search for files by name or"
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Technical Query: REST",
+      "passed": true,
+      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
+      "duration_ms": 5272.86,
+      "data": {
+        "reply_preview": "Execute external system action 'research_topic'."
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Comparison Query",
+      "passed": true,
+      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
+      "duration_ms": 4119.26,
+      "data": {
+        "reply_preview": "Execute external system action 'research_topic'."
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: ML Explanation",
+      "passed": true,
+      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
+      "duration_ms": 3838.73,
+      "data": {
+        "reply_preview": "Execute external system action 'research_topic'."
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Preference Setting",
+      "passed": true,
+      "details": "Generated reply (403 chars): # \u2705 Preference Saved!\n\nI've successfully saved your preference: **\"Ans...",
+      "duration_ms": 16683.4,
+      "data": {
+        "reply_preview": "# \u2705 Preference Saved!\n\nI've successfully saved your preference: **\"Answer technical questions with practical examples\"**\n\nThis preference will be applied to all future technical discussions, ensuring "
+      }
+    },
+    {
+      "suite": "TEST 2: CHAT",
+      "test": "Prompt: Context Preservation Follow-up",
+      "passed": true,
+      "details": "Context preserved: remembered practical examples preference! Preview: # \ud83c\udf10 What is a WebSocket? \n\n## Quick Definition\nA **WebSocket** is a communicatio...",
+      "duration_ms": 23782.92,
+      "data": {
+        "reply_preview": "# \ud83c\udf10 What is a WebSocket? \n\n## Quick Definition\nA **WebSocket** is a communication protocol that enables real-time, full-duplex (bidirectional) connections between a client and a server over a single T"
+      }
+    },
+    {
+      "suite": "TEST 3: STREAMING",
+      "test": "Token Streaming & Chunk Generation",
+      "passed": true,
+      "details": "Received 9 chunks: '1, 2, 3, 4, 5'",
+      "duration_ms": 8869.51,
+      "data": {
+        "chunk_count": 9
+      }
+    },
+    {
+      "suite": "TEST 3: STREAMING",
+      "test": "Mid-Stream Cancellation",
+      "passed": true,
+      "details": "Successfully cancelled after 3 chunks without generator deadlock",
+      "duration_ms": 64740.49,
+      "data": null
+    },
+    {
+      "suite": "TEST 3: STREAMING",
+      "test": "Duplicate Response Prevention",
+      "passed": true,
+      "details": "Single final persistence event verified in chat API",
+      "duration_ms": 0.0,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Memory Creation",
+      "passed": true,
+      "details": "Created memory ID 08083752-1716-4a27-9348-007805631949",
+      "duration_ms": 10.56,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Memory Retrieval",
+      "passed": true,
+      "details": "Fetched by ID and listed (2 items)",
+      "duration_ms": 8.2,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Memory Correction & Update",
+      "passed": true,
+      "details": "Updated content: 'User prefers modern dark mode, TypeScript, and Rust.'",
+      "duration_ms": 4.29,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Relevant Memory Search",
+      "passed": true,
+      "details": "Found 1 matching memory hits",
+      "duration_ms": 5.92,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Database Persistence Across Restart",
+      "passed": true,
+      "details": "Messages and memories verified intact after engine closure and restart",
+      "duration_ms": 100.84,
+      "data": null
+    },
+    {
+      "suite": "TEST 4: MEMORY",
+      "test": "Memory Deletion",
+      "passed": true,
+      "details": "Memory 08083752-1716-4a27-9348-007805631949 cleanly removed",
+      "duration_ms": 4.25,
+      "data": null
+    },
+    {
+      "suite": "TEST 5: ERROR HANDLING",
+      "test": "Ollama Unavailable Guard",
+      "passed": true,
+      "details": "Cleanly caught: OllamaConnectionError",
+      "duration_ms": 2538.0,
+      "data": null
+    },
+    {
+      "suite": "TEST 5: ERROR HANDLING",
+      "test": "Model Unavailable Guard",
+      "passed": true,
+      "details": "Cleanly caught: OllamaModelNotFoundError",
+      "duration_ms": 1060.62,
+      "data": null
+    },
+    {
+      "suite": "TEST 5: ERROR HANDLING",
+      "test": "Malformed Model Response Extraction",
+      "passed": true,
+      "details": "Malformed markdown JSON handled without exception",
+      "duration_ms": 0.07,
+      "data": null
+    },
+    {
+      "suite": "TEST 6: TOOL CALLING",
+      "test": "Structured Tool Calling (get_current_time)",
+      "passed": true,
+      "details": "Executed tools: ['get_current_time'] | Model synthesized response: 'The current time is **08:01:53 on Monday, 2026-11-16** in India Standard Time (U...'",
+      "duration_ms": 8083.59,
+      "data": {
+        "executed_tools": [
+          {
+            "name": "get_current_time",
+            "parameters": {},
+            "result": {
+              "iso": "2026-11-16T08:01:53.063480+05:30",
+              "time": "08:01:53",
+              "date": "2026-11-16",
+              "weekday": "Monday",
+              "timezone": "India Standard Time",
+              "utc_offset": "+0530"
+            },
+            "summary": "Current local time is 08:01:53 on Monday, 2026-11-16 (India Standard Time).",
+            "success": true
+          }
+        ],
+        "final_content": "The current time is **08:01:53 on Monday, 2026-11-16** in India Standard Time (UTC+05:30)."
+      }
+    }
+  ]
+}
