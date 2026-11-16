@@ -38,14 +38,10 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
   const [isLoadingModel, setIsLoadingModel] = useState<boolean>(false)
   const [modelError, setModelError] = useState<string | null>(null)
 
-  const handleTelemetry = useCallback(
-    (telemetry: Partial<CharacterTelemetry>) => {
-      if (onTelemetry) {
-        onTelemetry(telemetry)
-      }
-    },
-    [onTelemetry]
-  )
+  const onTelemetryRef = useRef(onTelemetry)
+  useEffect(() => {
+    onTelemetryRef.current = onTelemetry
+  }, [onTelemetry])
 
   // Initialize CharacterController & WebGL Scene
   useEffect(() => {
@@ -53,7 +49,7 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
 
     try {
       const controller = new CharacterController(canvasRef.current, {
-        onTelemetry: handleTelemetry,
+        onTelemetry: (t) => onTelemetryRef.current?.(t),
         onError: (err, category) => {
           if (
             err.includes('WebGL initialization failed') ||
@@ -105,7 +101,7 @@ export const CharacterCanvas: React.FC<CharacterCanvasProps> = ({
       setWebglError({ message: errMsg, category: 'unknown_exception' })
       return undefined
     }
-  }, [handleTelemetry, retryCount])
+  }, [retryCount])
 
   // Sync Assistant State
   useEffect(() => {

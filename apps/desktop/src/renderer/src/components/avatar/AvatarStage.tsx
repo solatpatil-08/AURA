@@ -18,12 +18,39 @@ import {
 } from 'lucide-react'
 
 export const AvatarStage: React.FC = () => {
-  const { assistantState, setAssistantState, isSpeaking, settings, updateSettings, messages } = useAura()
+  const {
+    assistantState,
+    setAssistantState,
+    isSpeaking,
+    settings,
+    updateSettings,
+    messages,
+    updateCharacterTelemetry
+  } = useAura()
   const [telemetry, setTelemetry] = useState<Partial<CharacterTelemetry>>({
     mode: 'procedural',
     modelName: 'Holographic Fallback Core',
     fps: 60
   })
+
+  const handleTelemetry = React.useCallback(
+    (newTel: Partial<CharacterTelemetry>) => {
+      setTelemetry((prev) => {
+        if (
+          prev.mode === newTel.mode &&
+          prev.fps === newTel.fps &&
+          prev.modelName === newTel.modelName &&
+          prev.state === newTel.state &&
+          prev.isSpeaking === newTel.isSpeaking
+        ) {
+          return prev
+        }
+        return { ...prev, ...newTel }
+      })
+      updateCharacterTelemetry?.(newTel)
+    },
+    [updateCharacterTelemetry]
+  )
 
   // Derive contextual greeting based on local time
   const getGreeting = (): string => {
@@ -480,7 +507,7 @@ export const AvatarStage: React.FC = () => {
           assistantState={assistantState}
           isSpeaking={isSpeaking}
           vrmModelPath={settings.vrmModelPath}
-          onTelemetry={setTelemetry}
+          onTelemetry={handleTelemetry}
         />
 
         {/* Floating Transcript / Companion Speech Bubble (Bottom-Center above controls) */}

@@ -252,7 +252,9 @@ export function createSafeWebGLProxy<T extends WebGLRenderingContext | WebGL2Ren
               const res = target.getContextAttributes()
               if (res) return res
             }
-          } catch {}
+          } catch {
+            // Ignore context attribute query error
+          }
           return {
             alpha: true,
             antialias: false,
@@ -326,13 +328,17 @@ export function patchWebGLPrototypesSafely(): void {
               const res = origPrecision.call(this, shaderType, precisionType)
               if (res && typeof res.precision === 'number' && res.precision > 0) return res
             }
-          } catch {}
+          } catch {
+            // Ignore context attribute query error
+          }
           return DEFAULT_SHADER_PRECISION
         },
         writable: true,
         configurable: true
       })
-    } catch {}
+    } catch {
+      // Prototype property may be read-only or non-configurable
+    }
 
     try {
       const origGetParameter = protoObj.getParameter
@@ -354,13 +360,17 @@ export function patchWebGLPrototypesSafely(): void {
                 }
               }
             }
-          } catch {}
+          } catch {
+            // Ignore context attribute query error
+          }
           return getSafeParameterFallback(pname)
         },
         writable: true,
         configurable: true
       })
-    } catch {}
+    } catch {
+      // Prototype property may be read-only or non-configurable
+    }
 
     protoObj.__auraWebGLPatched = true
   }
@@ -605,7 +615,12 @@ export class CharacterController {
     // 6. Setup visibility change listener to avoid background CPU/GPU usage
     document.addEventListener('visibilitychange', this.handleVisibilityChange)
 
-    const isTestEnv = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test'
+    const isTestEnv =
+      (typeof window !== 'undefined' && Boolean((window as any).__AURA_TEST_ENV__)) ||
+      (typeof globalThis !== 'undefined' && Boolean((globalThis as any).__AURA_TEST_ENV__)) ||
+      (typeof process !== 'undefined' &&
+        (process.env?.NODE_ENV === 'test' || process.env?.VITEST === 'true')) ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test')
     const shouldAnimate = options.autoAnimate ?? !isTestEnv
 
     // 7. Start Render Loop
