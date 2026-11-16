@@ -153,8 +153,12 @@ class ConversationHistoryService:
 
             context: List[Dict[str, str]] = []
             for msg in recent_messages:
-                context.append({"role": msg.role, "content": msg.content})
+                text_content = msg.content
+                if len(text_content) > 1500 and msg.role == "assistant":
+                    text_content = text_content[:1500] + "\n...[previous response condensed for context]"
+                context.append({"role": msg.role, "content": text_content})
 
-            # Append the current prompt
-            context.append({"role": "user", "content": new_user_message})
+            # Append current prompt only if not already saved as the latest message
+            if not context or context[-1].get("content") != new_user_message or context[-1].get("role") != "user":
+                context.append({"role": "user", "content": new_user_message})
             return context

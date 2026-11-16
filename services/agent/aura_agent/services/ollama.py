@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any, AsyncGenerator, Dict, List, Optional
 import httpx
+from aura_agent.config import settings
 
 logger = logging.getLogger("aura.ollama")
 
@@ -96,6 +97,7 @@ class OllamaClient:
             "stream": False,
             "options": {
                 "temperature": 0.7,
+                "num_ctx": getattr(settings, "ollama_num_ctx", 8192),
             },
         }
         if tools:
@@ -153,6 +155,7 @@ class OllamaClient:
             "stream": True,
             "options": {
                 "temperature": 0.7,
+                "num_ctx": getattr(settings, "ollama_num_ctx", 8192),
             },
         }
 

@@ -123,3 +123,4 @@ apps/desktop/dist/AURA-Setup-0.1.0.exe
 | **Backend Unreachable** | Background supervisor attempts automatic restart; reports detailed status. | Check Python `.venv` dependencies or inspect terminal logs. |
 | **Dual-GPU WebGL Loss** | Three-tier context acquisition recovers automatically to standard WebGL2. | Handled transparently by `CharacterController`. |
 | **Application Shutdown** | `before-quit` synchronously terminates backend process trees via `taskkill`. | Zero orphaned zombie Python processes. |
+

@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     # Local Ollama connection
     ollama_base_url: str = "http://127.0.0.1:11434"
     model_name: str = "qwen3.5:4b"
-    request_timeout_seconds: float = 60.0
+    request_timeout_seconds: float = 120.0
+    ollama_num_ctx: int = 8192
 
     # Local persistence
     database_url: str = "sqlite+aiosqlite:///aura_conversations.db"
