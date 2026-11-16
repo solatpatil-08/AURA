@@ -41,7 +41,8 @@ export function cleanTextForSpeech(text: string): string {
   cleaned = cleaned.replace(/[*_~#]/g, '');
 
   // 9. Remove decorative brackets or symbols
-  cleaned = cleaned.replace(/[|\^\\<>]/g, '');
+  cleaned = cleaned.replace(/[|^\\<>]/g, '');
+  cleaned = cleaned.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
 
   // 10. Normalize whitespace
   cleaned = cleaned.replace(/\s+/g, ' ').trim();

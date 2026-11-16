@@ -333,6 +333,6 @@ class FasterWhisperSTT(BaseSTTService):
         transcript, _, _ = await asyncio.to_thread(self._sync_transcribe, audio_data, language)
         return transcript
 
-    async def transcribe_with_metadata(self, audio_data: bytes, filename: str = "audio.wav") -> Tuple[str, Optional[str], Optional[float]]:
+    async def transcribe_with_metadata(self, audio_data: bytes, filename: str = "audio.wav", language: Optional[str] = None) -> Tuple[str, Optional[str], Optional[float]]:
         """Asynchronously transcribe audio and return transcript, language, and duration."""
         return await asyncio.to_thread(self._sync_transcribe, audio_data, language)

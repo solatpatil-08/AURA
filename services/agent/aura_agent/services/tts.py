@@ -54,6 +54,7 @@ def clean_text_for_speech(text: str) -> str:
 
     # 9. Clean up multiple punctuation or unusual characters
     cleaned = re.sub(r"[|\^\\<>]", "", cleaned)
+    cleaned = re.sub(r"[\U00010000-\U0010ffff]", "", cleaned)
 
     # 10. Normalize whitespace
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
