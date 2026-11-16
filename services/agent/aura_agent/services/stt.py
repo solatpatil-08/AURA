@@ -56,7 +56,7 @@ class BaseSTTService(ABC):
         pass
 
     @abstractmethod
-    async def transcribe(self, audio_data: bytes, filename: str = "audio.wav") -> str:
+    async def transcribe(self, audio_data: bytes, filename: str = "audio.wav", language: Optional[str] = None) -> str:
         """Transcribe audio bytes to text asynchronously.
 
         Args:
@@ -290,7 +290,7 @@ class FasterWhisperSTT(BaseSTTService):
             "error": self._last_error if not available else None,
         }
 
-    def _sync_transcribe(self, audio_data: bytes) -> Tuple[str, Optional[str], Optional[float]]:
+    def _sync_transcribe(self, audio_data: bytes, language: Optional[str] = None) -> Tuple[str, Optional[str], Optional[float]]:
         """Synchronously execute transcription using CTranslate2."""
         if not audio_data or len(audio_data) < 100:
             logger.debug("Audio buffer is empty or too short (< 100 bytes).")
@@ -301,7 +301,8 @@ class FasterWhisperSTT(BaseSTTService):
 
         try:
             # If self.language is None or 'auto', whisper auto-detects language
-            transcribe_lang = self.language if self.language and self.language != "auto" else None
+            chosen_lang = language or self.language
+            transcribe_lang = chosen_lang if chosen_lang and chosen_lang != "auto" else None
 
             segments, info = model.transcribe(
                 audio_stream,
@@ -327,11 +328,11 @@ class FasterWhisperSTT(BaseSTTService):
                 raise STTInvalidAudioError(f"Corrupt or unsupported audio format: {e}") from e
             raise STTError(f"Transcription execution failed: {e}") from e
 
-    async def transcribe(self, audio_data: bytes, filename: str = "audio.wav") -> str:
+    async def transcribe(self, audio_data: bytes, filename: str = "audio.wav", language: Optional[str] = None) -> str:
         """Asynchronously transcribe audio using standard worker thread."""
-        transcript, _, _ = await asyncio.to_thread(self._sync_transcribe, audio_data)
+        transcript, _, _ = await asyncio.to_thread(self._sync_transcribe, audio_data, language)
         return transcript
 
     async def transcribe_with_metadata(self, audio_data: bytes, filename: str = "audio.wav") -> Tuple[str, Optional[str], Optional[float]]:
         """Asynchronously transcribe audio and return transcript, language, and duration."""
-        return await asyncio.to_thread(self._sync_transcribe, audio_data)
+        return await asyncio.to_thread(self._sync_transcribe, audio_data, language)

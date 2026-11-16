@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile, status
+from typing import Optional
 from aura_agent.config import settings
 from aura_agent.models.schemas import SynthesizeRequest, TranscribeResponse, VoiceStatusResponse
 from aura_agent.services.stt import (
@@ -59,6 +60,7 @@ async def get_voice_models(request: Request) -> Dict[str, Any]:
 async def transcribe_audio(
     request: Request,
     file: UploadFile = File(..., description="Audio recording file (WAV, WebM, OGG)"),
+    language: Optional[str] = Form(None, description="Target language code or auto"),
 ) -> TranscribeResponse:
     """Transcribe user-recorded speech audio locally using faster-whisper.
 
@@ -96,7 +98,7 @@ async def transcribe_audio(
     try:
         if hasattr(stt_service, "transcribe_with_metadata"):
             transcript, detected_lang, duration = await stt_service.transcribe_with_metadata(
-                audio_bytes, filename=file.filename or "recording.wav"
+                audio_bytes, filename=file.filename or "recording.wav", language=language
             )
             return TranscribeResponse(
                 text=transcript,
@@ -104,7 +106,7 @@ async def transcribe_audio(
                 duration_seconds=duration,
             )
         else:
-            transcript = await stt_service.transcribe(audio_bytes, filename=file.filename or "recording.wav")
+            transcript = await stt_service.transcribe(audio_bytes, filename=file.filename or "recording.wav", language=language)
             return TranscribeResponse(text=transcript, language=settings.stt_language or "en")
     except STTModelNotFoundError as e:
         logger.warning("STT Model missing: %s", e)

@@ -32,6 +32,8 @@ export const ChatInput: React.FC = () => {
   const {
     isRecording,
     isTranscribing,
+    isSpeechActive,
+    rmsLevel,
     recordingDuration,
     maxDuration,
     audioLevels,
@@ -39,7 +41,32 @@ export const ChatInput: React.FC = () => {
     startRecording,
     stopAndTranscribe,
     cancelRecording,
-  } = useVoiceRecorder()
+  } = useVoiceRecorder({
+    deviceId: settings.selectedMicId,
+    language: settings.sttLanguage,
+    vadEnabled: settings.conversationMode === 'continuous_vad',
+    silenceTimeoutMs: settings.vadSilenceTimeoutMs,
+    onSpeechStart: () => {
+      // Real-time barge-in: Speech activity immediately stops AURA speech
+      if (isSpeaking) {
+        stopSpeech()
+      }
+    },
+    onAutoTurnComplete: (transcript: string) => {
+      if (transcript.trim()) {
+        const now = Date.now()
+        if (
+          lastTranscriptRef.current &&
+          lastTranscriptRef.current.text === transcript &&
+          now - lastTranscriptRef.current.timestamp < 3000
+        ) {
+          return
+        }
+        lastTranscriptRef.current = { text: transcript, timestamp: now }
+        sendMessage(transcript, true)
+      }
+    },
+  })
 
   const isBusy =
     assistantState === 'thinking' ||
@@ -99,6 +126,7 @@ export const ChatInput: React.FC = () => {
   }
 
   const handleMicClick = async (): Promise<void> => {
+    if (!settings.micEnabled) return
     if (isRecording) {
       const transcript = await stopAndTranscribe()
       if (transcript) {
@@ -205,9 +233,54 @@ export const ChatInput: React.FC = () => {
                 animation: 'pulse 1.2s infinite',
               }}
             />
-            <span>
-              <strong>Recording locally</strong> ({formatDuration(recordingDuration)} / {formatDuration(maxDuration)})
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>
+                <strong>Recording locally</strong> ({formatDuration(recordingDuration)} / {formatDuration(maxDuration)})
+              </span>
+              {isSpeechActive ? (
+                <span
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                    color: '#4ade80',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                  }}
+                >
+                  Speaking (RMS {(rmsLevel * 100).toFixed(0)}%)
+                </span>
+              ) : (
+                <span
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    color: '#fbbf24',
+                    fontSize: '10px',
+                    fontWeight: 500,
+                  }}
+                >
+                  Listening
+                </span>
+              )}
+              {settings.conversationMode === 'continuous_vad' && (
+                <span
+                  style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(0, 242, 254, 0.15)',
+                    border: '1px solid rgba(0, 242, 254, 0.3)',
+                    color: '#00f2fe',
+                    fontSize: '10px',
+                  }}
+                >
+                  Auto-Turn Detection
+                </span>
+              )}
+            </div>
 
             {/* Live Audio Frequency Waveform Visualizer */}
             <div

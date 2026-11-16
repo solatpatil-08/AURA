@@ -1,8 +1,20 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import App from '../src/renderer/src/App'
 
-describe('AURA Phase 3 Voice Interaction', () => {
+describe('AURA Advanced Voice Experience', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue({
+      getTracks: () => [
+        {
+          stop: vi.fn(),
+          kind: 'audio',
+        },
+      ],
+    }) as unknown as typeof navigator.mediaDevices.getUserMedia
+  })
+
   it('renders Push-to-Talk microphone button with proper accessibility label', () => {
     render(<App />)
 
@@ -85,6 +97,92 @@ describe('AURA Phase 3 Voice Interaction', () => {
       expect(
         screen.getByText(/Microphone permission was denied/i)
       ).toBeInTheDocument()
+    })
+  })
+
+  it('immediately cancels recording when Escape key is pressed during active capture', async () => {
+    render(<App />)
+
+    const micButton = screen.getByLabelText(/Microphone Voice Input/i)
+    fireEvent.click(micButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Recording locally/i)).toBeInTheDocument()
+    })
+
+    // Press Escape on the textarea
+    const textarea = screen.getByLabelText('Message AURA AI Assistant')
+    fireEvent.keyDown(textarea, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Recording locally/i)).not.toBeInTheDocument()
+    })
+  })
+
+  it('renders microphone active status and VAD listening state badge in recording banner', async () => {
+    render(<App />)
+
+    const micButton = screen.getByLabelText(/Microphone Voice Input/i)
+    fireEvent.click(micButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Recording locally/i)).toBeInTheDocument()
+      expect(screen.getByText('Listening')).toBeInTheDocument()
+      expect(screen.getByLabelText('Audio Waveform')).toBeInTheDocument()
+    })
+  })
+
+  it('navigates to Settings and displays advanced voice hardware routing & wake-word card', async () => {
+    render(<App />)
+
+    // Navigate to settings via sidebar button
+    const settingsNavBtn = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(settingsNavBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/System Settings & Security Configuration/i)).toBeInTheDocument()
+      expect(screen.getByText(/Microphone Access \(Master Privacy Switch\)/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Microphone Input Device/i)).toBeInTheDocument()
+      expect(screen.getByLabelText(/Audio Output \(Speaker\) Device/i)).toBeInTheDocument()
+      expect(screen.getByText(/Hands-Free VAD/i)).toBeInTheDocument()
+      expect(screen.getByText(/Wake Word Research: openWakeWord Engine/i)).toBeInTheDocument()
+      expect(screen.getByText(/Zero Cloud · ONNX CPU/i)).toBeInTheDocument()
+    })
+  })
+
+  it('allows user to switch conversation mode to Hands-Free VAD in Settings', async () => {
+    render(<App />)
+
+    const settingsNavBtn = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(settingsNavBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hands-Free VAD/i)).toBeInTheDocument()
+    })
+
+    const vadModeBtn = screen.getByText(/Hands-Free VAD/i)
+    fireEvent.click(vadModeBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Silence Timeout \(End-of-Speech Hangtime\)/i)).toBeInTheDocument()
+    })
+  })
+
+  it('verifies wake word model activation upon explicit user click in Settings', async () => {
+    render(<App />)
+
+    const settingsNavBtn = screen.getByRole('button', { name: 'Settings' })
+    fireEvent.click(settingsNavBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Verify \/ Enable Model/i)).toBeInTheDocument()
+    })
+
+    const verifyBtn = screen.getByText(/Verify \/ Enable Model/i)
+    fireEvent.click(verifyBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Model verified on disk/i)).toBeInTheDocument()
     })
   })
 })

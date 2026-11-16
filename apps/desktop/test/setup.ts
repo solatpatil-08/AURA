@@ -123,6 +123,12 @@ Object.defineProperty(navigator, 'mediaDevices', {
         },
       ],
     }),
+    enumerateDevices: vi.fn().mockResolvedValue([
+      { deviceId: 'mic-1', kind: 'audioinput', label: 'USB Studio Microphone' },
+      { deviceId: 'mic-2', kind: 'audioinput', label: 'Realtek Internal Mic' },
+      { deviceId: 'spk-1', kind: 'audiooutput', label: 'Headphones (Realtek Audio)' },
+      { deviceId: 'spk-2', kind: 'audiooutput', label: 'External HDMI Display Audio' },
+    ]),
   },
   writable: true,
 })

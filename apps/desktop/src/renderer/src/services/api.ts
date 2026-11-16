@@ -86,10 +86,14 @@ export async function fetchVoiceModels(apiBase: string = DEFAULT_API_BASE): Prom
 export async function transcribeAudio(
   audioBlob: Blob,
   filename: string = 'recording.webm',
+  language?: string,
   apiBase: string = DEFAULT_API_BASE
 ): Promise<{ text: string; language: string }> {
   const formData = new FormData()
   formData.append('file', audioBlob, filename)
+  if (language && language !== 'auto') {
+    formData.append('language', language)
+  }
 
   const res = await fetch(`${apiBase}/api/voice/transcribe`, {
     method: 'POST',
@@ -106,6 +110,7 @@ export async function transcribeAudio(
 
 export async function synthesizeSpeech(
   text: string,
+  signal?: AbortSignal,
   apiBase: string = DEFAULT_API_BASE
 ): Promise<Blob> {
   const res = await fetch(`${apiBase}/api/voice/synthesize`, {
@@ -115,6 +120,7 @@ export async function synthesizeSpeech(
       Accept: 'audio/wav',
     },
     body: JSON.stringify({ text }),
+    signal,
   })
 
   if (!res.ok) {

@@ -130,6 +130,8 @@ export interface Session {
   messageCount: number
 }
 
+export type ConversationMode = 'push_to_talk' | 'continuous_vad' | 'wake_word'
+
 export interface AppSettings {
   modelName: string
   ollamaUrl: string
@@ -142,6 +144,15 @@ export interface AppSettings {
   voiceVolume: number
   sttLanguage: string
   vrmModelPath?: string
+  // Advanced Voice & Audio Routing Settings
+  micEnabled: boolean
+  selectedMicId?: string
+  selectedSpeakerId?: string
+  conversationMode: ConversationMode
+  vadSilenceTimeoutMs: number
+  wakeWordEnabled: boolean
+  wakeWordModel: string
+  wakeWordSensitivity: number
 }
 
 export type CharacterRenderMode = 'procedural' | 'vrm' | 'css_fallback'

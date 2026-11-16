@@ -1,5 +1,5 @@
 import React from 'react'
-import { Minus, Square, X, Shield, Activity, Settings as SettingsIcon, Cpu } from 'lucide-react'
+import { Minus, Square, X, Shield, Activity, Settings as SettingsIcon, Cpu, MicOff } from 'lucide-react'
 import { StateBadge } from '../common/StateBadge'
 import { useAura } from '../../context/AuraContext'
 
@@ -123,9 +123,56 @@ export const TitleBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Center: Interactive Assistant State Indicator */}
-      <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+      {/* Center: Interactive Assistant State Indicator & Privacy Hardware Pill */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <StateBadge state={assistantState} interactive={true} />
+        {assistantState === 'listening' ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '2px 8px',
+              borderRadius: '9999px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              fontSize: '10px',
+              fontWeight: 600,
+            }}
+            title="Microphone is actively capturing speech locally"
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                boxShadow: '0 0 6px #ef4444',
+                animation: 'pulse 1.2s infinite',
+              }}
+            />
+            <span>Mic Live</span>
+          </div>
+        ) : !settings.micEnabled ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 8px',
+              borderRadius: '9999px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-muted)',
+              fontSize: '10px',
+            }}
+            title="Microphone hardware access disabled in settings"
+          >
+            <MicOff style={{ width: '10px', height: '10px' }} />
+            <span>Mic Off</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Right Controls: Quick Settings, Task Panel Toggle & Window Buttons */}

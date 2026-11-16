@@ -62,6 +62,14 @@ const defaultSettings: AppSettings = {
   voiceVolume: 1.0,
   sttLanguage: 'en',
   vrmModelPath: '',
+  micEnabled: true,
+  selectedMicId: 'default',
+  selectedSpeakerId: 'default',
+  conversationMode: 'push_to_talk',
+  vadSilenceTimeoutMs: 1400,
+  wakeWordEnabled: false,
+  wakeWordModel: 'hey_jarvis',
+  wakeWordSensitivity: 0.5,
 }
 
 const initialSessions: Session[] = [
@@ -147,6 +155,7 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const audioCtxRef = useRef<AudioContext | null>(null)
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const synthAbortControllerRef = useRef<AbortController | null>(null)
 
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     ollama: 'connected',
@@ -158,6 +167,14 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   })
 
   const stopSpeech = useCallback(() => {
+    if (synthAbortControllerRef.current) {
+      try {
+        synthAbortControllerRef.current.abort()
+      } catch {
+        // Ignore abort error
+      }
+      synthAbortControllerRef.current = null
+    }
     if (currentSourceRef.current) {
       try {
         currentSourceRef.current.stop()
@@ -186,7 +203,12 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!cleanText) return
 
       try {
-        const audioBlob = await synthesizeSpeech(cleanText)
+        if (synthAbortControllerRef.current) {
+          synthAbortControllerRef.current.abort()
+        }
+        const abortController = new AbortController()
+        synthAbortControllerRef.current = abortController
+        const audioBlob = await synthesizeSpeech(cleanText, abortController.signal)
 
         // Web Audio API with AnalyserNode for real-time lip-sync
         const AudioCtxClass =
