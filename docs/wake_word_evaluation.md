@@ -96,3 +96,4 @@ openWakeWord provides several validated pre-trained open checkpoints:
 2. **Automatic Turn Detection**: Silence of > 1400 ms after speech automatically finalizes and sends the audio segment.
 3. **Audio Cancellation**: Escape key or cancel button immediately releases hardware MediaStream and aborts pending transcription.
 4. **Hardware Selection**: Correct routing of input streams from chosen microphone and audio output to chosen speaker.
+
