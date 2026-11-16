@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { CharacterController, GraphicsErrorCategory } from './CharacterController'
 import { CssAvatarFallback } from './CssAvatarFallback'
 import { AssistantState, CharacterTelemetry } from '../../types'

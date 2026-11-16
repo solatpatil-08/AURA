@@ -488,7 +488,7 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const isTestEnv =
       (typeof process !== 'undefined' &&
         (process.env?.NODE_ENV === 'test' || process.env?.VITEST === 'true')) ||
-      (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test')
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.MODE === 'test')
     if (isTestEnv) return
 
     // 1. WebGL2 Pre-flight verification

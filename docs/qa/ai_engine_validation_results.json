@@ -9,7 +9,7 @@
       "test": "Ollama Service Availability",
       "passed": true,
       "details": "Connected to http://127.0.0.1:11434, found 1 models",
-      "duration_ms": 701.32,
+      "duration_ms": 728.74,
       "data": [
         "qwen3.5:4b"
       ]
@@ -18,8 +18,8 @@
       "suite": "TEST 1: OLLAMA",
       "test": "Local API Connectivity",
       "passed": true,
-      "details": "API version: 0.40.13",
-      "duration_ms": 331.64,
+      "details": "API version: 0.40.16",
+      "duration_ms": 1186.37,
       "data": null
     },
     {
@@ -27,7 +27,7 @@
       "test": "Model Availability (qwen3.5:4b)",
       "passed": true,
       "details": "Configured model installed: True",
-      "duration_ms": 443.17,
+      "duration_ms": 1336.55,
       "data": null
     },
     {
@@ -35,7 +35,7 @@
       "test": "Model Inference & Loading",
       "passed": true,
       "details": "Output: 'PONG...'",
-      "duration_ms": 5105.6,
+      "duration_ms": 17603.98,
       "data": "PONG"
     },
     {
@@ -43,77 +43,77 @@
       "test": "Timeout Handling",
       "passed": true,
       "details": "Trapped timeout: OllamaConnectionError",
-      "duration_ms": 4677.78,
+      "duration_ms": 3469.19,
       "data": null
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Greeting",
       "passed": true,
-      "details": "Generated reply (75 chars): Hello! I'm AURA, your local AI desktop assistant. How can I help you t...",
-      "duration_ms": 6390.06,
+      "details": "Generated reply (32 chars): Hello! How can I help you today?...",
+      "duration_ms": 7904.23,
       "data": {
-        "reply_preview": "Hello! I'm AURA, your local AI desktop assistant. How can I help you today?"
+        "reply_preview": "Hello! How can I help you today?"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Capabilities Query",
       "passed": true,
-      "details": "Generated reply (1201 chars): # Capabilities Overview \ud83c\udf1f\n\nAs your local AI desktop assistant, I can h...",
-      "duration_ms": 15212.83,
+      "details": "Generated reply (1132 chars): Hi there! I'm AURA, your local AI desktop assistant. Here are my main ...",
+      "duration_ms": 18567.0,
       "data": {
-        "reply_preview": "# Capabilities Overview \ud83c\udf1f\n\nAs your local AI desktop assistant, I can help you with:\n\n## \ud83d\udcc1 **File Management**\n- List files and directories in approved workspace locations\n- Search for files by name or"
+        "reply_preview": "Hi there! I'm AURA, your local AI desktop assistant. Here are my main capabilities:\n\n**File Management:**\n- List files and subdirectories in your workspace\n- Search for files using patterns or keyword"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Technical Query: REST",
       "passed": true,
-      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
-      "duration_ms": 5272.86,
+      "details": "Generated reply (3016 chars): ## What are REST APIs?\n\n**REST** stands for **Representational State T...",
+      "duration_ms": 23299.34,
       "data": {
-        "reply_preview": "Execute external system action 'research_topic'."
+        "reply_preview": "## What are REST APIs?\n\n**REST** stands for **Representational State Transfer**, a style of network architecture (not a protocol itself) for designing and structuring web services. It provides a stand"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Comparison Query",
       "passed": true,
-      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
-      "duration_ms": 4119.26,
+      "details": "Generated reply (3511 chars): ## Java vs Python: Key Differences\n\nHere's a comprehensive comparison ...",
+      "duration_ms": 29410.26,
       "data": {
-        "reply_preview": "Execute external system action 'research_topic'."
+        "reply_preview": "## Java vs Python: Key Differences\n\nHere's a comprehensive comparison of two major programming languages:\n\n---\n\n## \ud83d\udcca Quick Comparison Table\n\n| Aspect | **Java** | **Python** |\n|--------|----------|---"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: ML Explanation",
       "passed": true,
-      "details": "Generated reply (48 chars): Execute external system action 'research_topic'....",
-      "duration_ms": 3838.73,
+      "details": "Generated reply (2033 chars): ## What is Machine Learning?\n\n**Machine Learning (ML)** is a subset of...",
+      "duration_ms": 14917.63,
       "data": {
-        "reply_preview": "Execute external system action 'research_topic'."
+        "reply_preview": "## What is Machine Learning?\n\n**Machine Learning (ML)** is a subset of artificial intelligence that enables computers to learn from data and make predictions or decisions without being explicitly prog"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Preference Setting",
       "passed": true,
-      "details": "Generated reply (403 chars): # \u2705 Preference Saved!\n\nI've successfully saved your preference: **\"Ans...",
-      "duration_ms": 16683.4,
+      "details": "Generated reply (342 chars): Great! I've saved your preference: **technical questions should be ans...",
+      "duration_ms": 13425.3,
       "data": {
-        "reply_preview": "# \u2705 Preference Saved!\n\nI've successfully saved your preference: **\"Answer technical questions with practical examples\"**\n\nThis preference will be applied to all future technical discussions, ensuring "
+        "reply_preview": "Great! I've saved your preference: **technical questions should be answered with practical examples whenever possible**. This is now pinned to your memory, so I'll make sure to include real-world code"
       }
     },
     {
       "suite": "TEST 2: CHAT",
       "test": "Prompt: Context Preservation Follow-up",
       "passed": true,
-      "details": "Context preserved: remembered practical examples preference! Preview: # \ud83c\udf10 What is a WebSocket? \n\n## Quick Definition\nA **WebSocket** is a communicatio...",
-      "duration_ms": 23782.92,
+      "details": "Context preserved: remembered practical examples preference! Preview: ## \ud83c\udf10 What is a WebSocket?\n\n**WebSocket** is a communication protocol that enable...",
+      "duration_ms": 33504.88,
       "data": {
-        "reply_preview": "# \ud83c\udf10 What is a WebSocket? \n\n## Quick Definition\nA **WebSocket** is a communication protocol that enables real-time, full-duplex (bidirectional) connections between a client and a server over a single T"
+        "reply_preview": "## \ud83c\udf10 What is a WebSocket?\n\n**WebSocket** is a communication protocol that enables **full-duplex, bidirectional communication** between a client and server over a single TCP connection. Unlike traditio"
       }
     },
     {
@@ -121,7 +121,7 @@
       "test": "Token Streaming & Chunk Generation",
       "passed": true,
       "details": "Received 9 chunks: '1, 2, 3, 4, 5'",
-      "duration_ms": 8869.51,
+      "duration_ms": 9165.89,
       "data": {
         "chunk_count": 9
       }
@@ -131,7 +131,7 @@
       "test": "Mid-Stream Cancellation",
       "passed": true,
       "details": "Successfully cancelled after 3 chunks without generator deadlock",
-      "duration_ms": 64740.49,
+      "duration_ms": 88983.17,
       "data": null
     },
     {
@@ -146,8 +146,8 @@
       "suite": "TEST 4: MEMORY",
       "test": "Memory Creation",
       "passed": true,
-      "details": "Created memory ID 08083752-1716-4a27-9348-007805631949",
-      "duration_ms": 10.56,
+      "details": "Created memory ID 1d1463f4-faa0-4853-8c04-a7266560f1d1",
+      "duration_ms": 16.2,
       "data": null
     },
     {
@@ -155,7 +155,7 @@
       "test": "Memory Retrieval",
       "passed": true,
       "details": "Fetched by ID and listed (2 items)",
-      "duration_ms": 8.2,
+      "duration_ms": 17.49,
       "data": null
     },
     {
@@ -163,7 +163,7 @@
       "test": "Memory Correction & Update",
       "passed": true,
       "details": "Updated content: 'User prefers modern dark mode, TypeScript, and Rust.'",
-      "duration_ms": 4.29,
+      "duration_ms": 14.1,
       "data": null
     },
     {
@@ -171,7 +171,7 @@
       "test": "Relevant Memory Search",
       "passed": true,
       "details": "Found 1 matching memory hits",
-      "duration_ms": 5.92,
+      "duration_ms": 49.42,
       "data": null
     },
     {
@@ -179,15 +179,15 @@
       "test": "Database Persistence Across Restart",
       "passed": true,
       "details": "Messages and memories verified intact after engine closure and restart",
-      "duration_ms": 100.84,
+      "duration_ms": 133.95,
       "data": null
     },
     {
       "suite": "TEST 4: MEMORY",
       "test": "Memory Deletion",
       "passed": true,
-      "details": "Memory 08083752-1716-4a27-9348-007805631949 cleanly removed",
-      "duration_ms": 4.25,
+      "details": "Memory 1d1463f4-faa0-4853-8c04-a7266560f1d1 cleanly removed",
+      "duration_ms": 4.01,
       "data": null
     },
     {
@@ -195,7 +195,7 @@
       "test": "Ollama Unavailable Guard",
       "passed": true,
       "details": "Cleanly caught: OllamaConnectionError",
-      "duration_ms": 2538.0,
+      "duration_ms": 2725.46,
       "data": null
     },
     {
@@ -203,7 +203,7 @@
       "test": "Model Unavailable Guard",
       "passed": true,
       "details": "Cleanly caught: OllamaModelNotFoundError",
-      "duration_ms": 1060.62,
+      "duration_ms": 1812.04,
       "data": null
     },
     {
@@ -211,33 +211,33 @@
       "test": "Malformed Model Response Extraction",
       "passed": true,
       "details": "Malformed markdown JSON handled without exception",
-      "duration_ms": 0.07,
+      "duration_ms": 0.04,
       "data": null
     },
     {
       "suite": "TEST 6: TOOL CALLING",
       "test": "Structured Tool Calling (get_current_time)",
       "passed": true,
-      "details": "Executed tools: ['get_current_time'] | Model synthesized response: 'The current time is **08:01:53 on Monday, 2026-11-16** in India Standard Time (U...'",
-      "duration_ms": 8083.59,
+      "details": "Executed tools: ['get_current_time'] | Model synthesized response: 'The current local time is **01:04:20** on Tuesday, November 17, 2026 in **India ...'",
+      "duration_ms": 12556.39,
       "data": {
         "executed_tools": [
           {
             "name": "get_current_time",
             "parameters": {},
             "result": {
-              "iso": "2026-11-16T08:01:53.063480+05:30",
-              "time": "08:01:53",
-              "date": "2026-11-16",
-              "weekday": "Monday",
+              "iso": "2026-11-17T01:04:20.256500+05:30",
+              "time": "01:04:20",
+              "date": "2026-11-17",
+              "weekday": "Tuesday",
               "timezone": "India Standard Time",
               "utc_offset": "+0530"
             },
-            "summary": "Current local time is 08:01:53 on Monday, 2026-11-16 (India Standard Time).",
+            "summary": "Current local time is 01:04:20 on Tuesday, 2026-11-17 (India Standard Time).",
             "success": true
           }
         ],
-        "final_content": "The current time is **08:01:53 on Monday, 2026-11-16** in India Standard Time (UTC+05:30)."
+        "final_content": "The current local time is **01:04:20** on Tuesday, November 17, 2026 in **India Standard Time (IST)** timezone. The UTC offset is +05:30."
       }
     }
   ]
