@@ -6,6 +6,8 @@ export interface IAuraDesktopBridge {
     ollama: 'connected' | 'offline' | 'checking'
     backend: 'ready' | 'starting' | 'stopped'
     activeModel: string
+    modelInstalled?: boolean
+    errorMessage?: string | null
     memoryMb: number
     micReady: boolean
   }>
@@ -14,6 +16,13 @@ export interface IAuraDesktopBridge {
   getStoredVrmCharacter?: () => Promise<string | null>
   resetVrmCharacter?: () => Promise<void>
   loadVrmBinary?: (filePath: string) => Promise<ArrayBuffer>
+  getGpuDiagnostics?: () => Promise<{
+    hardwareAccelerationEnabled: boolean
+    featureStatus: Record<string, unknown>
+    gpuInfo?: Record<string, unknown>
+  }>
+  getAppSettings?: () => Promise<Record<string, unknown> | null>
+  saveAppSettings?: (settings: Record<string, unknown>) => Promise<boolean>
 }
 
 declare global {

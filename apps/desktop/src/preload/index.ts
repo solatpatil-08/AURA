@@ -9,6 +9,8 @@ export interface IAuraDesktopBridge {
     ollama: 'connected' | 'offline' | 'checking'
     backend: 'ready' | 'starting' | 'stopped'
     activeModel: string
+    modelInstalled?: boolean
+    errorMessage?: string | null
     memoryMb: number
     micReady: boolean
   }>
@@ -22,6 +24,8 @@ export interface IAuraDesktopBridge {
     featureStatus: Record<string, unknown>
     gpuInfo?: Record<string, unknown>
   }>
+  getAppSettings: () => Promise<Record<string, unknown> | null>
+  saveAppSettings: (settings: Record<string, unknown>) => Promise<boolean>
 }
 
 const auraAPI: IAuraDesktopBridge = {
@@ -54,6 +58,12 @@ const auraAPI: IAuraDesktopBridge = {
   },
   getGpuDiagnostics: async () => {
     return ipcRenderer.invoke('system:get-gpu-diagnostics')
+  },
+  getAppSettings: async () => {
+    return ipcRenderer.invoke('settings:get')
+  },
+  saveAppSettings: async (settings: Record<string, unknown>) => {
+    return ipcRenderer.invoke('settings:save', settings)
   }
 }
 

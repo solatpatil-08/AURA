@@ -58,6 +58,7 @@ const defaultSettings: AppSettings = {
   accentColor: '#00f2fe',
   soundEffects: false,
   workspacePath: 'C:\\Projects\\AURA',
+  localModelsPath: 'C:\\Projects\\AURA\\models',
   voiceOutputEnabled: true,
   voiceVolume: 1.0,
   sttLanguage: 'en',
@@ -427,8 +428,19 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => clearInterval(interval)
   }, [settings.modelName, refreshTasks])
 
-  // Load existing user character from local storage if available
+  // Load persistent application settings and existing user character from local storage
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.auraAPI?.getAppSettings) {
+      window.auraAPI
+        .getAppSettings()
+        .then((saved) => {
+          if (saved && typeof saved === 'object') {
+            setSettings((prev) => ({ ...prev, ...(saved as Partial<AppSettings>) }))
+          }
+        })
+        .catch(() => {})
+    }
+
     if (typeof window !== 'undefined' && window.auraAPI?.getStoredVrmCharacter) {
       window.auraAPI
         .getStoredVrmCharacter()
@@ -634,7 +646,13 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   const updateSettings = (newSettings: Partial<AppSettings>): void => {
-    setSettings((prev) => ({ ...prev, ...newSettings }))
+    setSettings((prev) => {
+      const updated = { ...prev, ...newSettings }
+      if (typeof window !== 'undefined' && window.auraAPI?.saveAppSettings) {
+        window.auraAPI.saveAppSettings(updated as Record<string, unknown>).catch(() => {})
+      }
+      return updated
+    })
   }
 
   const toggleTaskPanel = (): void => {

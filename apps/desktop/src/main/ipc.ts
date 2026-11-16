@@ -1,11 +1,15 @@
 import { ipcMain, BrowserWindow, dialog, app } from 'electron'
 import { promises as fs, existsSync } from 'fs'
 import path from 'path'
+import http from 'http'
+import { BackendProcessSupervisor, checkBackendHealth } from './supervisor'
 
 export interface SystemStatusResponse {
   ollama: 'connected' | 'offline' | 'checking'
   backend: 'ready' | 'starting' | 'stopped'
   activeModel: string
+  modelInstalled?: boolean
+  errorMessage?: string | null
   memoryMb: number
   micReady: boolean
 }
@@ -17,10 +21,55 @@ export interface GpuDiagnosticsResponse {
 }
 
 /**
+ * Check Ollama connection and list installed tags
+ */
+function checkOllamaTags(baseUrl: string = 'http://127.0.0.1:11434'): Promise<{ connected: boolean; models: string[] }> {
+  return new Promise((resolve) => {
+    try {
+      const parsed = new URL('/api/tags', baseUrl)
+      const req = http.get(
+        {
+          host: parsed.hostname || '127.0.0.1',
+          port: parsed.port || 11434,
+          path: parsed.pathname,
+          timeout: 1800
+        },
+        (res) => {
+          if (res.statusCode !== 200) {
+            resolve({ connected: false, models: [] })
+            return
+          }
+          let data = ''
+          res.on('data', (chunk) => {
+            data += chunk
+          })
+          res.on('end', () => {
+            try {
+              const json = JSON.parse(data)
+              const models: string[] = (json.models || []).map((m: any) => m.name || m.model || '')
+              resolve({ connected: true, models })
+            } catch {
+              resolve({ connected: true, models: [] })
+            }
+          })
+        }
+      )
+      req.on('error', () => resolve({ connected: false, models: [] }))
+      req.on('timeout', () => {
+        req.destroy()
+        resolve({ connected: false, models: [] })
+      })
+    } catch {
+      resolve({ connected: false, models: [] })
+    }
+  })
+}
+
+/**
  * Register validated IPC listeners for the renderer process.
  * Strict channel allowlist with input validation.
  */
-export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow, supervisor?: BackendProcessSupervisor): void {
   // Window controls
   ipcMain.on('window:minimize', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -44,16 +93,111 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   })
 
-  // System status query (validated schema return)
+  // System status query verifying real local backend & Ollama connectivity
   ipcMain.handle('system:get-status', async (): Promise<SystemStatusResponse> => {
-    // In Phase 1 foundation, return structured local status
     const memoryUsage = process.memoryUsage()
+    const memoryMb = Math.round(memoryUsage.heapUsed / 1024 / 1024)
+
+    // 1. Check Python Backend Health
+    let backendState: 'ready' | 'starting' | 'stopped' = 'stopped'
+    const isBackendHealthy = await checkBackendHealth(8000)
+
+    if (isBackendHealthy) {
+      backendState = 'ready'
+    } else if (supervisor && supervisor.isAlive()) {
+      backendState = 'starting'
+    } else {
+      backendState = 'stopped'
+    }
+
+    const supStatus = supervisor ? supervisor.getStatus() : null
+
+    // 2. Check Ollama Connectivity & Model Availability
+    let ollamaState: 'connected' | 'offline' | 'checking' = 'offline'
+    let modelInstalled = false
+    let ollamaError: string | null = null
+
+    // Read configured model from persistent settings if available
+    let configuredModel = 'qwen3.5:4b'
+    let ollamaUrl = 'http://127.0.0.1:11434'
+    const settingsPath = path.join(app.getPath('userData'), 'settings.json')
+    if (existsSync(settingsPath)) {
+      try {
+        const raw = await fs.readFile(settingsPath, 'utf8')
+        const parsed = JSON.parse(raw)
+        if (parsed.modelName) configuredModel = parsed.modelName
+        if (parsed.ollamaUrl) ollamaUrl = parsed.ollamaUrl
+      } catch {
+        // Fall back to defaults
+      }
+    }
+
+    try {
+      const ollamaCheck = await checkOllamaTags(ollamaUrl)
+      if (ollamaCheck.connected) {
+        ollamaState = 'connected'
+        const installed = ollamaCheck.models
+        const normTarget = configuredModel.toLowerCase().trim()
+        modelInstalled = installed.some((m) => {
+          const nm = m.toLowerCase().trim()
+          return nm === normTarget || nm.startsWith(`${normTarget}:`) || normTarget.startsWith(`${nm}:`) || nm.split(':')[0] === normTarget.split(':')[0]
+        })
+        if (!modelInstalled) {
+          ollamaError = `Model '${configuredModel}' is not installed in local Ollama. Run: 'ollama pull ${configuredModel}'`
+        }
+      } else {
+        ollamaState = 'offline'
+        ollamaError = `Ollama service is unreachable on ${ollamaUrl}. Ensure Ollama is running locally.`
+      }
+    } catch {
+      ollamaState = 'offline'
+      ollamaError = 'Failed to connect to local Ollama service.'
+    }
+
+    let finalError: string | null = null
+    if (backendState === 'stopped') {
+      finalError = supStatus?.error || 'Local Python backend is stopped on http://127.0.0.1:8000'
+    } else if (ollamaState === 'offline') {
+      finalError = ollamaError
+    } else if (!modelInstalled) {
+      finalError = ollamaError
+    }
+
     return {
-      ollama: 'connected',
-      backend: 'ready',
-      activeModel: 'qwen3.5:4b',
-      memoryMb: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-      micReady: false // Explicitly standby per Phase 1 requirements
+      ollama: ollamaState,
+      backend: backendState,
+      activeModel: configuredModel,
+      modelInstalled,
+      errorMessage: finalError,
+      memoryMb,
+      micReady: true
+    }
+  })
+
+  // Persistent settings storage in designated user-data directory
+  ipcMain.handle('settings:get', async (): Promise<Record<string, unknown> | null> => {
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json')
+    if (!existsSync(settingsFile)) return null
+    try {
+      const data = await fs.readFile(settingsFile, 'utf8')
+      return JSON.parse(data)
+    } catch (e) {
+      console.warn('[IPC] Failed to read settings.json:', e)
+      return null
+    }
+  })
+
+  ipcMain.handle('settings:save', async (_event, newSettings: Record<string, unknown>): Promise<boolean> => {
+    if (!newSettings || typeof newSettings !== 'object') {
+      throw new Error('Invalid settings object provided')
+    }
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json')
+    try {
+      await fs.writeFile(settingsFile, JSON.stringify(newSettings, null, 2), 'utf8')
+      return true
+    } catch (e) {
+      console.error('[IPC] Failed to write settings.json:', e)
+      return false
     }
   })
 

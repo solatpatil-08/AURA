@@ -740,6 +740,30 @@ export const SettingsScreen: React.FC = () => {
             </span>
           </div>
 
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label htmlFor="local-models-path" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Configurable Local Models Directory:
+            </label>
+            <input
+              id="local-models-path"
+              type="text"
+              placeholder="e.g. C:\Projects\AURA\models"
+              value={settings.localModelsPath || ''}
+              onChange={(e) => updateSettings({ localModelsPath: e.target.value })}
+              style={{
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '13px',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Directory for on-device voice models (faster-whisper, Piper voices) and offline model assets.
+            </span>
+          </div>
+
           <div style={{ paddingTop: '8px' }}>
             <button
               type="button"

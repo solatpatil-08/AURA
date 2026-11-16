@@ -51,7 +51,7 @@ function createWindow(): void {
 
   // Register security & IPC mechanisms
   setupSecurityHandlers(mainWindow)
-  registerIpcHandlers(mainWindow)
+  registerIpcHandlers(mainWindow, supervisor)
 
   mainWindow.on('ready-to-show', () => {
     if (mainWindow) {

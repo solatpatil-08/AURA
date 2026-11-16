@@ -140,6 +140,7 @@ export interface AppSettings {
   accentColor: string
   soundEffects: boolean
   workspacePath: string
+  localModelsPath?: string
   voiceOutputEnabled: boolean
   voiceVolume: number
   sttLanguage: string

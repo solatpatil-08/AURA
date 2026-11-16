@@ -2,6 +2,7 @@ appId: com.aura.desktop
 productName: AURA
 copyright: Copyright © 2026 AURA Team
 electronVersion: 34.2.0
+electronDist: ../../node_modules/electron/dist
 
 directories:
   output: dist
