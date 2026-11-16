@@ -90,14 +90,15 @@ def browser_service(tmp_path):
     return service
 
 
-def test_browser_profile_isolation(tmp_path):
+def test_browser_profile_isolation(tmp_path, monkeypatch):
     """Verify managed browser profile is stored separately from user's personal browser profiles."""
     custom_profile = tmp_path / "aura_profile"
     service = BrowserService(user_data_dir=str(custom_profile))
     assert service.profile_dir == custom_profile.resolve()
     assert service.profile_dir.exists()
 
-    # Default profile location under AURA
+    # Default profile location under AURA (isolated for testing)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
     default_service = BrowserService()
     assert "AURA" in str(default_service.profile_dir)
     assert "browser_profile" in str(default_service.profile_dir)

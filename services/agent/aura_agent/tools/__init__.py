@@ -22,6 +22,7 @@ from aura_agent.tools.builtin.list_files import ListFilesTool
 from aura_agent.tools.builtin.search_files import SearchFilesTool
 from aura_agent.tools.builtin.read_file import ReadFileTool
 from aura_agent.tools.builtin.create_note import CreateNoteTool
+from aura_agent.tools.builtin.create_document import CreateDocumentTool
 from aura_agent.tools.builtin.create_folder import CreateFolderTool
 from aura_agent.tools.builtin.open_allowlisted_app import OpenAllowlistedAppTool
 from aura_agent.tools.builtin.open_approved_url import OpenApprovedUrlTool
@@ -74,6 +75,7 @@ def create_default_registry(
     registry.register(SearchFilesTool(path_jail=path_jail))
     registry.register(ReadFileTool(path_jail=path_jail))
     registry.register(CreateNoteTool(path_jail=path_jail, notes_dir=notes_path))
+    registry.register(CreateDocumentTool(path_jail=path_jail))
     registry.register(CreateFolderTool(path_jail=path_jail))
     registry.register(OpenAllowlistedAppTool(allowlist=app_allowlist))
     registry.register(OpenApprovedUrlTool())

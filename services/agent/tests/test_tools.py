@@ -20,6 +20,7 @@ from aura_agent.tools.builtin.list_files import ListFilesTool, ListFilesArgs
 from aura_agent.tools.builtin.search_files import SearchFilesTool, SearchFilesArgs
 from aura_agent.tools.builtin.read_file import ReadFileTool, ReadFileArgs
 from aura_agent.tools.builtin.create_note import CreateNoteTool, CreateNoteArgs
+from aura_agent.tools.builtin.create_document import CreateDocumentTool, CreateDocumentArgs
 from aura_agent.tools.builtin.create_folder import CreateFolderTool, CreateFolderArgs
 from aura_agent.tools.builtin.open_allowlisted_app import OpenAllowlistedAppTool, OpenAppArgs
 from aura_agent.tools.builtin.open_approved_url import OpenApprovedUrlTool, OpenUrlArgs
@@ -256,6 +257,37 @@ async def test_tool_create_note(mock_workspace):
     res_overwrite_ok = await tool.execute(CreateNoteArgs(title="Architectural Ideas", content="New content."), ctx_confirmed)
     assert res_overwrite_ok.success is True
     assert res_overwrite_ok.data["overwritten"] is True
+
+
+@pytest.mark.asyncio
+async def test_tool_create_document(mock_workspace):
+    jail = PathJail(allowed_workspaces=[mock_workspace])
+    tool = CreateDocumentTool(path_jail=jail)
+
+    # Initial creation
+    ctx = ExecutionContext(policy="request-review", user_confirmed=False)
+    res = await tool.execute(CreateDocumentArgs(relative_path="docs/test.txt", content="Hello AURA QA"), ctx)
+    assert res.success is True
+    assert (mock_workspace / "docs" / "test.txt").exists()
+    assert (mock_workspace / "docs" / "test.txt").read_text(encoding="utf-8") == "Hello AURA QA"
+
+    # Block prohibited executable extension
+    res_bad_ext = await tool.execute(CreateDocumentArgs(relative_path="payload.exe", content="malicious"), ctx)
+    assert res_bad_ext.success is False
+    assert "prohibited" in res_bad_ext.summary.lower()
+
+    # Overwrite attempt without confirmation when policy is request-review
+    res_overwrite = await tool.execute(CreateDocumentArgs(relative_path="docs/test.txt", content="Overwritten text"), ctx)
+    assert res_overwrite.success is False
+    assert "overwrite requires confirmation" in res_overwrite.summary.lower()
+
+    # Overwrite attempt WITH confirmation
+    ctx_confirmed = ExecutionContext(policy="request-review", user_confirmed=True)
+    res_overwrite_ok = await tool.execute(CreateDocumentArgs(relative_path="docs/test.txt", content="Overwritten text"), ctx_confirmed)
+    assert res_overwrite_ok.success is True
+    assert res_overwrite_ok.data["overwritten"] is True
+    assert (mock_workspace / "docs" / "test.txt").read_text(encoding="utf-8") == "Overwritten text"
+
 
 
 @pytest.mark.asyncio

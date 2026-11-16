@@ -140,7 +140,7 @@ async def in_memory_db():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_workspace(tmp_path):
     """Create a dedicated temporary workspace directory for safe test execution."""
     ws = tmp_path / "workspace"
@@ -173,9 +173,15 @@ async def app_instance(in_memory_db, mock_workspace):
     memory_svc = MemoryService(in_memory_db)
     stt_svc = MockSTTService()
     tts_svc = MockTTSService()
+    from aura_agent.services.browser import BrowserService
+    test_browser = BrowserService(
+        user_data_dir=str(mock_workspace / "browser_profile"),
+        headless=True,
+    )
     tool_reg = create_default_registry(
         workspace_root=str(mock_workspace),
         notes_dir=str(mock_workspace / "notes"),
+        browser_service=test_browser,
         memory_service=memory_svc,
     )
     agent_loop = AgentLoop(
