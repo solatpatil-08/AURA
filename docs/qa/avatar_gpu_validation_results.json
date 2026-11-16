@@ -1,0 +1,286 @@
+{
+  "timestamp": "2026-11-16T18:51:45.562Z",
+  "systemProfile": {
+    "platform": "win32",
+    "integratedGpu": "Intel UHD Graphics",
+    "discreteGpu": "NVIDIA GeForce RTX 3050 Laptop GPU (6GB VRAM)",
+    "ram": "~15GB",
+    "activeRendererInBrowser": "Intel UHD Graphics (Default Chromium / ANGLE D3D11 selection)",
+    "discreteSelectionSwitch": "--force_high_performance_gpu"
+  },
+  "summary": {
+    "totalTests": 20,
+    "passed": 20,
+    "failed": 0,
+    "successRatePercent": 100
+  },
+  "tests": [
+    {
+      "id": "T1.1",
+      "testGroup": "GPU",
+      "name": "WebGL2 Capability Diagnostics",
+      "status": "PASSED",
+      "durationMs": 762,
+      "details": {
+        "webglVersion": "WebGL 2.0 (Mock Test Context)",
+        "renderer": "Mock NVIDIA GeForce RTX 3050",
+        "vendor": "Mock NVIDIA",
+        "maxTextureSize": 4096,
+        "maxVertexAttribs": 16,
+        "isSupported": true
+      }
+    },
+    {
+      "id": "T1.2",
+      "testGroup": "GPU",
+      "name": "Dual-GPU Command Line Switches",
+      "status": "PASSED",
+      "durationMs": 61,
+      "details": {
+        "switchesApplied": [
+          "ignore-gpu-blocklist",
+          "enable-gpu-rasterization",
+          "enable-zero-copy",
+          "force_high_performance_gpu",
+          "use-angle=d3d11"
+        ],
+        "sourceFile": "apps/desktop/src/main/index.ts"
+      }
+    },
+    {
+      "id": "T1.3",
+      "testGroup": "GPU",
+      "name": "Defensive WebGL Prototype Patching",
+      "status": "PASSED",
+      "durationMs": 16,
+      "details": {
+        "versionParameterType": "string",
+        "precisionAvailable": true
+      }
+    },
+    {
+      "id": "T2.1",
+      "testGroup": "THREE.JS",
+      "name": "Isolated 7-Stage Pipeline",
+      "status": "PASSED",
+      "durationMs": 2991,
+      "details": {
+        "stagesExecuted": [
+          "A: WebGL2 Context Creation",
+          "B: Three.js Scene & Conservative Renderer Setup",
+          "C: Render Single Primitive (Cube)",
+          "D: Render Procedural Avatar Core",
+          "E: Load & Validate VRM Model",
+          "F: Apply Facial Expressions & Viseme Weights",
+          "G: Animation Tick & Frame Render"
+        ],
+        "allPassed": true,
+        "vrmByteSize": 18308368
+      }
+    },
+    {
+      "id": "T3.1",
+      "testGroup": "VRM",
+      "name": "Model Binary Header & Integrity",
+      "status": "PASSED",
+      "durationMs": 149,
+      "details": {
+        "filePath": "C:\\Projects\\AURA\\models\\vrm\\aura.vrm",
+        "byteLength": 18308368,
+        "magicHex": "0x46546c67",
+        "gltfVersion": 2
+      }
+    },
+    {
+      "id": "T3.2",
+      "testGroup": "VRM",
+      "name": "Humanoid Bones & Expression Presets",
+      "status": "PASSED",
+      "durationMs": 4892,
+      "details": {
+        "modelName": "AvatarSample_U",
+        "author": "pixiv VRoid Project",
+        "metaVersion": "1",
+        "expressionCount": 14,
+        "expressions": [
+          "happy",
+          "angry",
+          "sad",
+          "relaxed",
+          "surprised",
+          "aa",
+          "ih",
+          "ou",
+          "ee",
+          "oh",
+          "blink",
+          "blinkLeft",
+          "blinkRight",
+          "neutral"
+        ]
+      }
+    },
+    {
+      "id": "T3.3",
+      "testGroup": "VRM",
+      "name": "Buffer Validation & Rejection",
+      "status": "PASSED",
+      "durationMs": 93,
+      "details": {
+        "validationPassed": true
+      }
+    },
+    {
+      "id": "T4.1",
+      "testGroup": "ANIMATION",
+      "name": "State Machine & Lighting Palettes",
+      "status": "PASSED",
+      "durationMs": 3468,
+      "details": {
+        "verifiedStates": [
+          "idle",
+          "listening",
+          "transcribing",
+          "thinking",
+          "speaking",
+          "executing",
+          "waiting_confirmation",
+          "error"
+        ],
+        "totalStatesVerified": 8
+      }
+    },
+    {
+      "id": "T4.2",
+      "testGroup": "ANIMATION",
+      "name": "Idle Breathing & Procedural Blinking",
+      "status": "PASSED",
+      "durationMs": 2236,
+      "details": {
+        "framesSimulated": 60,
+        "status": "Continuous animation stable"
+      }
+    },
+    {
+      "id": "T5.1",
+      "testGroup": "LIP_SYNC",
+      "name": "Spectral Amplitude Analysis",
+      "status": "PASSED",
+      "durationMs": 1632,
+      "details": {
+        "lipSyncMode": "amplitude-spectral",
+        "measuredAmplitude": 0.23,
+        "isSpeaking": true,
+        "implementationNote": "Amplitude-spectral viseme mapping via Web Audio AnalyserNode (not phoneme-level forced alignment)"
+      }
+    },
+    {
+      "id": "T5.2",
+      "testGroup": "LIP_SYNC",
+      "name": "Decay to Neutral & Detachment",
+      "status": "PASSED",
+      "durationMs": 49,
+      "details": {
+        "status": "Smooth neutral decay verified without exception"
+      }
+    },
+    {
+      "id": "T6.1",
+      "testGroup": "PERFORMANCE",
+      "name": "Conservative Graphics Settings",
+      "status": "PASSED",
+      "durationMs": 244,
+      "details": {
+        "antialias": false,
+        "preserveDrawingBuffer": false,
+        "pixelRatio": 1,
+        "shadowsDisabled": true,
+        "postProcessingDisabled": true
+      }
+    },
+    {
+      "id": "T6.2",
+      "testGroup": "PERFORMANCE",
+      "name": "Dynamic FPS Measurement",
+      "status": "PASSED",
+      "durationMs": 262,
+      "details": {
+        "pausedFps": 0
+      }
+    },
+    {
+      "id": "T6.3",
+      "testGroup": "PERFORMANCE",
+      "name": "prefers-reduced-motion Accessibility",
+      "status": "PASSED",
+      "durationMs": 87,
+      "details": {
+        "accessibilityMotionScaling": "Verified (reduced motion scaling applied)"
+      }
+    },
+    {
+      "id": "T7.1",
+      "testGroup": "CONTEXT_RECOVERY",
+      "name": "Context Loss Interception",
+      "status": "PASSED",
+      "durationMs": 154,
+      "details": {
+        "defaultPrevented": true,
+        "errorCategory": "context_lost",
+        "contextLostCount": 1
+      }
+    },
+    {
+      "id": "T7.2",
+      "testGroup": "CONTEXT_RECOVERY",
+      "name": "Context Restoration Handling",
+      "status": "PASSED",
+      "durationMs": 203,
+      "details": {
+        "restorationHandled": true
+      }
+    },
+    {
+      "id": "T7.3",
+      "testGroup": "CONTEXT_RECOVERY",
+      "name": "Component Unmount & Resource Teardown",
+      "status": "PASSED",
+      "durationMs": 57,
+      "details": {
+        "cleanDisposal": true
+      }
+    },
+    {
+      "id": "T8.1",
+      "testGroup": "FALLBACK",
+      "name": "CSS/SVG Cybernetic Avatar",
+      "status": "PASSED",
+      "durationMs": 2989,
+      "details": {
+        "renderedFallback": true,
+        "webglIndependent": true,
+        "accessibleRegion": true
+      }
+    },
+    {
+      "id": "T8.2",
+      "testGroup": "FALLBACK",
+      "name": "Interactive Recovery Button",
+      "status": "PASSED",
+      "durationMs": 1325,
+      "details": {
+        "retryTriggered": true
+      }
+    },
+    {
+      "id": "T8.3",
+      "testGroup": "FALLBACK",
+      "name": "End-to-End Fallback State in AvatarStage",
+      "status": "PASSED",
+      "durationMs": 1323,
+      "details": {
+        "stageIntegrityPreserved": true
+      }
+    }
+  ]
+}
