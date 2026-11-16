@@ -119,8 +119,12 @@ export interface SystemStatus {
   errorMessage?: string | null
   memoryMb: number
   micReady: boolean
+  micHardwareAvailable?: boolean
+  micPermission?: 'granted' | 'denied' | 'prompt'
   voiceOutputReady?: boolean
   voiceEngineStatus?: VoiceEngineDetails
+  webglReady?: boolean
+  gpuName?: string
 }
 
 export interface Session {
@@ -199,4 +203,14 @@ export interface MemoryItem {
   metadata_json?: string | null
 }
 
-export type NavTab = 'home' | 'chat' | 'skills' | 'activity' | 'memory' | 'history' | 'settings' | 'stage' | 'tasks'
+export type NavTab =
+  | 'home'
+  | 'chat'
+  | 'avatar'
+  | 'skills'
+  | 'activity'
+  | 'memory'
+  | 'history'
+  | 'settings'
+  | 'stage'
+  | 'tasks'

@@ -42,7 +42,7 @@ export const AppShell: React.FC = () => {
             </>
           )}
 
-          {(activeTab === 'stage' || activeTab === 'home') && (
+          {(activeTab === 'stage' || activeTab === 'home' || activeTab === 'avatar') && (
             <>
               <AvatarStage />
               {isTaskPanelOpen && <TaskActivityPanel />}

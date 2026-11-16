@@ -1,6 +1,22 @@
 import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 
+// Explicitly flag test runner environment to suppress endless requestAnimationFrame loops
+;(globalThis as any).__AURA_TEST_ENV__ = true
+if (typeof window !== 'undefined') {
+  ;(window as any).__AURA_TEST_ENV__ = true
+}
+
+// Mock WebGLRenderingContext and WebGL2RenderingContext constructors for jsdom
+if (typeof window !== 'undefined') {
+  if (!window.WebGL2RenderingContext) {
+    ;(window as any).WebGL2RenderingContext = class WebGL2RenderingContext {}
+  }
+  if (!window.WebGLRenderingContext) {
+    ;(window as any).WebGLRenderingContext = class WebGLRenderingContext {}
+  }
+}
+
 // Mock WebGLRenderer for headless jsdom test environment
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>()

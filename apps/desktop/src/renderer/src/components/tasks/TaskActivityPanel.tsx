@@ -32,7 +32,7 @@ interface GeneratedPlan {
 }
 
 export const TaskActivityPanel: React.FC = () => {
-  const { tasks, isTaskPanelOpen, toggleTaskPanel, refreshTasks, cancelTaskById, confirmTaskById, currentSessionId } = useAura()
+  const { tasks, isTaskPanelOpen, toggleTaskPanel, refreshTasks, cancelTaskById, confirmTaskById, currentSessionId, activeTab } = useAura()
   const [expandedReports, setExpandedReports] = useState<Record<string, boolean>>({})
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const [planPrompt, setPlanPrompt] = useState('')
@@ -40,7 +40,8 @@ export const TaskActivityPanel: React.FC = () => {
   const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null)
   const [planError, setPlanError] = useState<string | null>(null)
 
-  if (!isTaskPanelOpen) return null
+  const isFullView = activeTab === 'tasks' || activeTab === 'activity'
+  if (!isTaskPanelOpen && !isFullView) return null
 
   const toggleReport = (taskId: string) => {
     setExpandedReports((prev) => ({ ...prev, [taskId]: !prev[taskId] }))
@@ -143,13 +144,15 @@ export const TaskActivityPanel: React.FC = () => {
     <aside
       aria-label="Task Activity and Audit Panel"
       style={{
-        width: '360px',
+        width: isFullView ? '100%' : '360px',
+        maxWidth: isFullView ? '100%' : '380px',
+        flex: isFullView ? 1 : undefined,
         background: 'var(--bg-sidebar)',
-        borderLeft: '1px solid var(--border-subtle)',
+        borderLeft: isFullView ? 'none' : '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        flexShrink: 0
+        flexShrink: isFullView ? 1 : 0
       }}
     >
       {/* Header */}
@@ -225,23 +228,25 @@ export const TaskActivityPanel: React.FC = () => {
             <RefreshCw style={{ width: '13px', height: '13px' }} />
           </button>
 
-          <button
-            type="button"
-            onClick={toggleTaskPanel}
-            aria-label="Close task activity panel"
-            style={{
-              padding: '5px',
-              borderRadius: '4px',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              background: 'transparent',
-              border: 'none'
-            }}
-          >
-            <X style={{ width: '14px', height: '14px' }} />
-          </button>
+          {!isFullView && (
+            <button
+              type="button"
+              onClick={toggleTaskPanel}
+              aria-label="Close task activity panel"
+              style={{
+                padding: '5px',
+                borderRadius: '4px',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                background: 'transparent',
+                border: 'none'
+              }}
+            >
+              <X style={{ width: '14px', height: '14px' }} />
+            </button>
+          )}
         </div>
       </header>
 

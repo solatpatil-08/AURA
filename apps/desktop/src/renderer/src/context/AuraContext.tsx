@@ -6,7 +6,8 @@ import {
   SystemStatus,
   Session,
   AppSettings,
-  NavTab
+  NavTab,
+  CharacterTelemetry
 } from '../types'
 import {
   checkBackendStatus,
@@ -20,6 +21,7 @@ import {
   OrchestratedTaskStep,
 } from '../services/api'
 import { cleanTextForSpeech } from '../utils/speechFilter'
+import { verifyWebGL2Support } from '../components/avatar/CharacterController'
 
 interface AuraContextType {
   assistantState: AssistantState
@@ -48,6 +50,8 @@ interface AuraContextType {
   refreshTasks: () => Promise<void>
   cancelTaskById: (id: string, reason?: string) => Promise<void>
   confirmTaskById: (id: string, approved: boolean, guidance?: string) => Promise<void>
+  characterTelemetry: Partial<CharacterTelemetry>
+  updateCharacterTelemetry: (telemetry: Partial<CharacterTelemetry>) => void
 }
 
 const defaultSettings: AppSettings = {
@@ -158,9 +162,35 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
   const synthAbortControllerRef = useRef<AbortController | null>(null)
 
+  const [characterTelemetry, setCharacterTelemetryState] = useState<Partial<CharacterTelemetry>>({
+    mode: 'procedural',
+    modelName: 'Procedural 3D Core',
+    fps: 60,
+    webgl2Available: true,
+    rendererReady: true
+  })
+
+  const updateCharacterTelemetry = useCallback((newTel: Partial<CharacterTelemetry>) => {
+    setCharacterTelemetryState((prev) => {
+      if (
+        prev.mode === newTel.mode &&
+        prev.fps === newTel.fps &&
+        prev.webgl2Available === newTel.webgl2Available &&
+        prev.rendererReady === newTel.rendererReady &&
+        prev.gpuRenderer === newTel.gpuRenderer &&
+        prev.modelName === newTel.modelName &&
+        prev.state === newTel.state &&
+        prev.isSpeaking === newTel.isSpeaking
+      ) {
+        return prev
+      }
+      return { ...prev, ...newTel }
+    })
+  }, [])
+
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
-    ollama: 'connected',
-    backend: 'ready',
+    ollama: 'checking',
+    backend: 'starting',
     activeModel: defaultSettings.modelName,
     memoryMb: 124,
     micReady: false,
@@ -453,6 +483,88 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [])
 
+  // Diagnostic Pre-flight: WebGL2, GPU Hardware, and Audio Input Device Verification
+  useEffect(() => {
+    const isTestEnv =
+      (typeof process !== 'undefined' &&
+        (process.env?.NODE_ENV === 'test' || process.env?.VITEST === 'true')) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test')
+    if (isTestEnv) return
+
+    // 1. WebGL2 Pre-flight verification
+    if (typeof document !== 'undefined') {
+      try {
+        const testCanvas = document.createElement('canvas')
+        const diag = verifyWebGL2Support(testCanvas)
+        if (diag.isSupported) {
+          setCharacterTelemetryState((prev) => ({
+            ...prev,
+            webgl2Available: true,
+            rendererReady: true,
+            gpuRenderer: diag.renderer,
+            gpuVendor: diag.vendor,
+          }))
+          setSystemStatus((prev) => ({
+            ...prev,
+            webglReady: true,
+            gpuName: diag.renderer,
+          }))
+        } else {
+          setCharacterTelemetryState((prev) => ({
+            ...prev,
+            webgl2Available: false,
+            rendererReady: false,
+            error: diag.errorMessage || 'WebGL2 not supported',
+          }))
+          setSystemStatus((prev) => ({
+            ...prev,
+            webglReady: false,
+          }))
+        }
+      } catch (err) {
+        console.warn('WebGL preflight check warning:', err)
+      }
+    }
+
+    // 2. Electron GPU diagnostics
+    if (typeof window !== 'undefined' && window.auraAPI?.getGpuDiagnostics) {
+      window.auraAPI
+        .getGpuDiagnostics()
+        .then((diag) => {
+          if (diag?.gpuInfo && typeof diag.gpuInfo === 'object') {
+            const info = diag.gpuInfo as Record<string, unknown>
+            const auxGpu =
+              (info.auxAttributes as Record<string, unknown> | undefined)?.glRenderer ||
+              ((info.gpuDevice as Array<Record<string, unknown>> | undefined)?.[0]?.deviceString)
+            if (auxGpu && typeof auxGpu === 'string') {
+              setCharacterTelemetryState((prev) => ({ ...prev, gpuRenderer: auxGpu }))
+              setSystemStatus((prev) => ({ ...prev, gpuName: auxGpu }))
+            }
+          }
+        })
+        .catch(() => {})
+    }
+
+    // 3. Audio input device enumeration
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((devices) => {
+          const hasAudioInput = devices.some((d) => d.kind === 'audioinput')
+          setSystemStatus((prev) => ({
+            ...prev,
+            micHardwareAvailable: hasAudioInput,
+          }))
+        })
+        .catch(() => {
+          setSystemStatus((prev) => ({
+            ...prev,
+            micHardwareAvailable: false,
+          }))
+        })
+    }
+  }, [])
+
   const sendMessage = (content: string, isVoice: boolean = false): void => {
     if (!content.trim()) return
 
@@ -688,6 +800,8 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         refreshTasks,
         cancelTaskById,
         confirmTaskById,
+        characterTelemetry,
+        updateCharacterTelemetry,
       }}
     >
       {children}

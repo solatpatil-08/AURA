@@ -21,7 +21,7 @@ export const Sidebar: React.FC = () => {
   ]
 
   const isTabActive = (itemId: NavTab): boolean => {
-    if (itemId === 'stage') return activeTab === 'stage' || activeTab === 'home'
+    if (itemId === 'stage' || itemId === 'avatar' || itemId === 'home') return activeTab === 'stage' || activeTab === 'home' || activeTab === 'avatar'
     if (itemId === 'tasks') return activeTab === 'tasks' || activeTab === 'activity'
     return activeTab === itemId
   }
