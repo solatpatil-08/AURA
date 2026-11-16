@@ -234,7 +234,27 @@ export function createSafeWebGLProxy<T extends WebGLRenderingContext | WebGL2Ren
         }
       }
 
-      // 3. Delegate all other properties & methods to target, preserving native this binding
+      // 3. Intercept getContextAttributes to NEVER return null
+      if (prop === 'getContextAttributes') {
+        return function () {
+          try {
+            if (typeof target.getContextAttributes === 'function') {
+              const res = target.getContextAttributes()
+              if (res) return res
+            }
+          } catch {}
+          return {
+            alpha: true,
+            antialias: false,
+            depth: true,
+            stencil: false,
+            powerPreference: 'high-performance',
+            preserveDrawingBuffer: false
+          }
+        }
+      }
+
+      // 4. Delegate all other properties & methods to target, preserving native this binding
       const val = Reflect.get(target, prop, target)
       if (typeof val === 'function') {
         return val.bind(target)
@@ -641,6 +661,23 @@ export class CharacterController {
         }
       } catch (e) {
         console.warn('[CharacterController] Direct context acquisition error:', e)
+      }
+
+      // Fallback: If high-performance powerPreference fails on dual-GPU laptops (ANGLE EGL error), retry standard attributes
+      if (!rawGl) {
+        try {
+          rawGl = this.canvas.getContext('webgl2', {
+            alpha: true,
+            antialias: false,
+            depth: true,
+            stencil: false
+          })
+          if (!rawGl) {
+            rawGl = this.canvas.getContext('webgl')
+          }
+        } catch (e2) {
+          console.warn('[CharacterController] Standard context acquisition fallback warning:', e2)
+        }
       }
 
       const safeGl = rawGl ? createSafeWebGLProxy(rawGl) : null
