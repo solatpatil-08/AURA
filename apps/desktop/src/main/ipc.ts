@@ -102,15 +102,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow, supervisor?: Back
     let backendState: 'ready' | 'starting' | 'stopped' = 'stopped'
     const isBackendHealthy = await checkBackendHealth(8000)
 
+    const supStatus = supervisor ? supervisor.getStatus() : null
+
     if (isBackendHealthy) {
       backendState = 'ready'
-    } else if (supervisor && supervisor.isAlive()) {
+    } else if (supervisor && supervisor.isAlive() && !supStatus?.startupFailed) {
       backendState = 'starting'
     } else {
       backendState = 'stopped'
     }
-
-    const supStatus = supervisor ? supervisor.getStatus() : null
 
     // 2. Check Ollama Connectivity & Model Availability
     let ollamaState: 'connected' | 'offline' | 'checking' = 'offline'
