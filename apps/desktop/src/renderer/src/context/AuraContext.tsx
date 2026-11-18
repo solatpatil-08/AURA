@@ -284,6 +284,10 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             analyser.connect(gainNode)
             gainNode.connect(ctx.destination)
 
+            if (typeof (ctx as any).setSinkId === 'function' && settings.selectedSpeakerId && settings.selectedSpeakerId !== 'default') {
+              (ctx as any).setSinkId(settings.selectedSpeakerId).catch(() => {})
+            }
+
             currentSourceRef.current = source
             setSpeechAnalyser(analyser)
             setIsSpeaking(true)
@@ -306,6 +310,9 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const audioUrl = URL.createObjectURL(audioBlob)
         const audio = new Audio(audioUrl)
         audio.volume = Math.max(0, Math.min(1, settings.voiceVolume))
+        if (typeof (audio as any).setSinkId === 'function' && settings.selectedSpeakerId && settings.selectedSpeakerId !== 'default') {
+          (audio as any).setSinkId(settings.selectedSpeakerId).catch(() => {})
+        }
         currentAudioRef.current = audio
 
         audio.onplay = () => {
@@ -415,29 +422,45 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     async function fetchStatus(): Promise<void> {
       const backendStatus = await checkBackendStatus()
       if (backendStatus) {
-        setSystemStatus({
+        const ttsInfo = backendStatus.voice?.tts
+        const modelAvailable = Boolean(ttsInfo?.model_available ?? ttsInfo?.available)
+        const synthesisReady = Boolean(ttsInfo?.synthesis_ready ?? ttsInfo?.available)
+        const playbackReady = Boolean(
+          settings.voiceOutputEnabled &&
+          typeof window !== 'undefined' &&
+          ((window as any).AudioContext || (window as any).webkitAudioContext || (window as any).Audio)
+        )
+        const isVoiceReady = modelAvailable && synthesisReady && playbackReady
+
+        setSystemStatus((prev) => ({
+          ...prev,
           backend: 'ready',
           ollama: backendStatus.ollama.connected ? 'connected' : 'offline',
           activeModel: backendStatus.ollama.active_model || settings.modelName,
           modelInstalled: backendStatus.ollama.model_installed,
           errorMessage: backendStatus.ollama.error_message,
           memoryMb: 128,
-          micReady: backendStatus.voice?.stt?.available ?? false,
-          voiceOutputReady: backendStatus.voice?.tts?.available ?? false,
+          voiceOutputReady: isVoiceReady,
+          ttsModelAvailable: modelAvailable,
+          ttsSynthesisReady: synthesisReady,
+          ttsPlaybackReady: playbackReady,
           voiceEngineStatus: backendStatus.voice
             ? {
                 stt: backendStatus.voice.stt,
                 tts: backendStatus.voice.tts,
               }
             : undefined,
-        })
+        }))
         await refreshTasks()
       } else if (typeof window !== 'undefined' && window.auraAPI?.getSystemStatus) {
         try {
           const status = await window.auraAPI.getSystemStatus()
           setSystemStatus((prev) => ({
             ...prev,
-            ...status,
+            backend: status.backend,
+            ollama: status.ollama,
+            modelInstalled: status.modelInstalled,
+            errorMessage: status.errorMessage,
             activeModel: settings.modelName,
           }))
         } catch {
@@ -465,7 +488,11 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .getAppSettings()
         .then((saved) => {
           if (saved && typeof saved === 'object') {
-            setSettings((prev) => ({ ...prev, ...(saved as Partial<AppSettings>) }))
+            const casted = saved as Partial<AppSettings>
+            if (casted.conversationMode === 'wake_word' && !casted.wakeWordEnabled) {
+              casted.conversationMode = 'push_to_talk'
+            }
+            setSettings((prev) => ({ ...prev, ...casted }))
           }
         })
         .catch(() => {})
@@ -501,24 +528,29 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             ...prev,
             webgl2Available: true,
             rendererReady: true,
+            isContextLost: false,
             gpuRenderer: diag.renderer,
             gpuVendor: diag.vendor,
           }))
           setSystemStatus((prev) => ({
             ...prev,
             webglReady: true,
+            isContextLost: false,
             gpuName: diag.renderer,
           }))
         } else {
+          const isLost = diag.category === 'context_lost'
           setCharacterTelemetryState((prev) => ({
             ...prev,
             webgl2Available: false,
             rendererReady: false,
+            isContextLost: isLost,
             error: diag.errorMessage || 'WebGL2 not supported',
           }))
           setSystemStatus((prev) => ({
             ...prev,
             webglReady: false,
+            isContextLost: isLost,
           }))
         }
       } catch (err) {
@@ -545,23 +577,52 @@ export const AuraProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .catch(() => {})
     }
 
-    // 3. Audio input device enumeration
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
-      navigator.mediaDevices
-        .enumerateDevices()
-        .then((devices) => {
-          const hasAudioInput = devices.some((d) => d.kind === 'audioinput')
-          setSystemStatus((prev) => ({
-            ...prev,
-            micHardwareAvailable: hasAudioInput,
-          }))
-        })
-        .catch(() => {
-          setSystemStatus((prev) => ({
-            ...prev,
-            micHardwareAvailable: false,
-          }))
-        })
+    // 3. Audio input device enumeration and granular status
+    const updateAudioStatus = async () => {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const audioInputs = devices.filter((d) => d.kind === 'audioinput')
+        const hasInputs = audioInputs.length > 0
+
+        let perm: 'granted' | 'denied' | 'prompt' = 'prompt'
+        if (typeof navigator.permissions !== 'undefined' && navigator.permissions.query) {
+          try {
+            const status = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+            perm = status.state as 'granted' | 'denied' | 'prompt'
+          } catch {
+            // Permission query unsupported
+          }
+        }
+
+        const micStatus = !settings.micEnabled
+          ? 'muted'
+          : !hasInputs
+            ? 'no_device'
+            : perm === 'denied'
+              ? 'permission_denied'
+              : 'ready'
+
+        setSystemStatus((prev) => ({
+          ...prev,
+          micHardwareAvailable: hasInputs,
+          micPermission: perm,
+          micStatus,
+          micReady: hasInputs && settings.micEnabled && perm !== 'denied',
+        }))
+      } catch {
+        setSystemStatus((prev) => ({
+          ...prev,
+          micHardwareAvailable: false,
+          micStatus: 'no_device',
+          micReady: false,
+        }))
+      }
+    }
+
+    updateAudioStatus()
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', updateAudioStatus)
     }
   }, [])
 
