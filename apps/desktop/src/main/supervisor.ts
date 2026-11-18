@@ -49,6 +49,33 @@ export function checkBackendHealth(port: number = 8000): Promise<boolean> {
 }
 
 /**
+ * Resolve the directory containing the local Python backend service.
+ */
+function resolveBackendDir(isPackaged: boolean): string {
+  if (isPackaged) {
+    return path.join(process.resourcesPath, 'agent')
+  }
+
+  const appPath = typeof app !== 'undefined' && app.getAppPath ? app.getAppPath() : process.cwd()
+  const candidates = [
+    path.resolve(appPath, '../../services/agent'),
+    path.resolve(appPath, 'services/agent'),
+    path.resolve(__dirname, '../../../../services/agent'),
+    path.resolve(process.cwd(), 'services/agent'),
+    path.resolve(process.cwd(), '../services/agent'),
+    'C:\\Projects\\AURA\\services\\agent'
+  ]
+
+  for (const c of candidates) {
+    if (existsSync(c)) {
+      return c
+    }
+  }
+
+  return path.resolve(process.cwd(), 'services/agent')
+}
+
+/**
  * Resolve the best candidate Python executable for starting the local backend
  */
 function resolvePythonExecutable(backendDir: string, isPackaged: boolean): { exe: string; isModule: boolean } | null {
@@ -61,32 +88,36 @@ function resolvePythonExecutable(backendDir: string, isPackaged: boolean): { exe
     }
   }
 
-  // Look for project virtual environment
-  const candidates = process.platform === 'win32'
+  const appPath = typeof app !== 'undefined' && app.getAppPath ? app.getAppPath() : process.cwd()
+
+  // Prioritize virtual environment python first
+  const venvCandidates = process.platform === 'win32'
     ? [
         path.join(backendDir, '.venv', 'Scripts', 'python.exe'),
         path.resolve(process.cwd(), 'services/agent/.venv/Scripts/python.exe'),
         path.resolve(process.cwd(), '../services/agent/.venv/Scripts/python.exe'),
-        path.resolve(process.cwd(), '.venv/Scripts/python.exe'),
-        'python',
-        'py'
+        path.resolve(appPath, '../../services/agent/.venv/Scripts/python.exe'),
+        path.resolve(appPath, 'services/agent/.venv/Scripts/python.exe'),
+        'C:\\Projects\\AURA\\services\\agent\\.venv\\Scripts\\python.exe',
       ]
     : [
         path.join(backendDir, '.venv', 'bin', 'python'),
         path.resolve(process.cwd(), 'services/agent/.venv/bin/python'),
         path.resolve(process.cwd(), '../services/agent/.venv/bin/python'),
-        path.resolve(process.cwd(), '.venv/bin/python'),
-        'python3',
-        'python'
+        path.resolve(appPath, '../../services/agent/.venv/bin/python'),
+        path.resolve(appPath, 'services/agent/.venv/bin/python'),
       ]
 
-  for (const c of candidates) {
-    if (c === 'python' || c === 'py' || c === 'python3') {
-      return { exe: c, isModule: true }
-    }
+  for (const c of venvCandidates) {
     if (existsSync(c)) {
       return { exe: c, isModule: true }
     }
+  }
+
+  // Fallback to system python only if virtual environment not found
+  const systemCandidates = process.platform === 'win32' ? ['python', 'py'] : ['python3', 'python']
+  for (const c of systemCandidates) {
+    return { exe: c, isModule: true }
   }
 
   return null
@@ -109,9 +140,7 @@ export function createBackendSupervisor(port: number = 8000): BackendProcessSupe
       }
 
       const isPackaged = app.isPackaged
-      const backendDir = isPackaged
-        ? path.join(process.resourcesPath, 'agent')
-        : path.resolve(__dirname, '../../../../services/agent')
+      const backendDir = resolveBackendDir(isPackaged)
 
       const pythonTarget = resolvePythonExecutable(backendDir, isPackaged)
       if (!pythonTarget) {
@@ -137,6 +166,7 @@ export function createBackendSupervisor(port: number = 8000): BackendProcessSupe
             env: {
               ...process.env,
               PYTHONUNBUFFERED: '1',
+              PYTHONPATH: backendDir,
               AURA_PORT: port.toString()
             },
             stdio: ['ignore', 'pipe', 'pipe']
@@ -147,8 +177,8 @@ export function createBackendSupervisor(port: number = 8000): BackendProcessSupe
         backendProcess.stderr?.on('data', (data) => {
           const text = data.toString()
           initialStderr += text
-          if (initialStderr.length > 1000) {
-            initialStderr = initialStderr.slice(-1000)
+          if (initialStderr.length > 1500) {
+            initialStderr = initialStderr.slice(-1500)
           }
           console.error(`[AURA Backend Error] ${text.trim()}`)
         })
@@ -172,23 +202,29 @@ export function createBackendSupervisor(port: number = 8000): BackendProcessSupe
           console.warn(`[Backend Supervisor] ${lastSupervisorError}`)
         })
 
-        // Poll for healthy status over 6 seconds
+        // Poll for healthy status over up to 15 seconds (checking every 500ms)
         const startTime = Date.now()
-        while (Date.now() - startTime < 6000) {
-          await new Promise((r) => setTimeout(r, 600))
+        let healthy = false
+        while (Date.now() - startTime < 15000) {
+          await new Promise((r) => setTimeout(r, 500))
           if (await checkBackendHealth(port)) {
             console.log(`[Backend Supervisor] Backend verified healthy on http://127.0.0.1:${port}`)
             lastSupervisorError = null
             supervisorStartupFailed = false
+            healthy = true
             return
+          }
+          if (backendProcess.killed || (backendProcess as any).exitCode !== null) {
+            break
           }
         }
 
-        if (!backendProcess || backendProcess.killed) {
+        if (!healthy) {
           supervisorStartupFailed = true
           if (!lastSupervisorError) {
-            lastSupervisorError = 'Backend failed to start. Review terminal logs.'
+            lastSupervisorError = initialStderr.trim() || `Backend service failed to respond to health checks on http://127.0.0.1:${port}/health within 15 seconds.`
           }
+          console.warn(`[Backend Supervisor] ${lastSupervisorError}`)
         }
       } catch (err) {
         supervisorStartupFailed = true
@@ -202,7 +238,6 @@ export function createBackendSupervisor(port: number = 8000): BackendProcessSupe
         console.log('[Backend Supervisor] Terminating backend child process...')
         try {
           if (process.platform === 'win32' && backendProcess.pid) {
-            // Synchronous taskkill ensures process tree is killed immediately on Windows
             spawnSync('taskkill', ['/pid', backendProcess.pid.toString(), '/T', '/F'])
           } else {
             backendProcess.kill('SIGTERM')
