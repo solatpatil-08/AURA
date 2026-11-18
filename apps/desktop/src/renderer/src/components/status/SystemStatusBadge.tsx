@@ -26,7 +26,7 @@ function formatGpuName(raw?: string): string {
 }
 
 export const SystemStatusBadge: React.FC = () => {
-  const { systemStatus, settings, characterTelemetry } = useAura()
+  const { systemStatus, settings, characterTelemetry, assistantState } = useAura()
 
   // 1. Backend indicator
   const backendReady = systemStatus.backend === 'ready'
@@ -42,15 +42,60 @@ export const SystemStatusBadge: React.FC = () => {
 
   // 4. STT indicator
   const sttAvailable = systemStatus.voiceEngineStatus?.stt?.available || systemStatus.micReady
-  const sttChecking = backendStarting
+  const sttChecking = backendStarting && !sttAvailable
 
-  // 5. TTS indicator
-  const ttsAvailable = systemStatus.voiceEngineStatus?.tts?.available || systemStatus.voiceOutputReady
-  const ttsChecking = backendStarting
+  // 5. TTS indicator with 3-tier health checks (Model available, Synthesis ready, Playback ready)
+  const ttsModelAvailable = systemStatus.ttsModelAvailable ?? Boolean(systemStatus.voiceEngineStatus?.tts?.model_available ?? systemStatus.voiceEngineStatus?.tts?.available)
+  const ttsSynthesisReady = systemStatus.ttsSynthesisReady ?? Boolean(systemStatus.voiceEngineStatus?.tts?.synthesis_ready ?? systemStatus.voiceEngineStatus?.tts?.available)
+  const ttsPlaybackReady = systemStatus.ttsPlaybackReady ?? (settings.voiceOutputEnabled && systemStatus.voiceOutputReady !== false)
 
-  // 6. Microphone indicator
-  const micHardwareOk = systemStatus.micHardwareAvailable !== false
-  const micActive = settings.micEnabled && micHardwareOk
+  const ttsFullReady = ttsModelAvailable && ttsSynthesisReady && ttsPlaybackReady
+
+  const ttsTooltip = `Piper TTS Health: Model [${ttsModelAvailable ? '✓ Available' : '✗ Missing'}] · Synthesis [${ttsSynthesisReady ? '✓ Ready' : '✗ Not Ready'}] · Playback [${ttsPlaybackReady ? '✓ Armed' : '✗ Muted/Disabled'}]`
+
+  let ttsLabel = 'Piper TTS'
+  let ttsColor = 'var(--accent-green)'
+  if (backendStarting) {
+    ttsLabel = 'Checking...'
+    ttsColor = 'var(--accent-amber)'
+  } else if (!backendReady) {
+    ttsLabel = 'Offline'
+    ttsColor = 'var(--text-muted)'
+  } else if (!ttsModelAvailable) {
+    ttsLabel = 'Model Missing'
+    ttsColor = 'var(--accent-amber)'
+  } else if (!ttsSynthesisReady) {
+    ttsLabel = 'Synthesis Error'
+    ttsColor = 'var(--accent-crimson)'
+  } else if (!ttsPlaybackReady) {
+    ttsLabel = 'Playback Muted'
+    ttsColor = 'var(--text-muted)'
+  } else {
+    ttsLabel = 'Piper TTS'
+    ttsColor = 'var(--accent-green)'
+  }
+
+  // 6. Microphone indicator with granular states
+  const micStatus =
+    assistantState === 'listening'
+      ? 'recording'
+      : systemStatus.micStatus ||
+        (!settings.micEnabled
+          ? 'muted'
+          : systemStatus.micHardwareAvailable === false
+            ? 'no_device'
+            : 'ready')
+
+  const micBadgeConfig: Record<string, { label: string; color: string; title: string }> = {
+    muted: { label: 'Muted', color: 'var(--text-muted)', title: 'Microphone muted in privacy settings' },
+    recording: { label: 'Recording', color: 'var(--accent-crimson)', title: 'Active audio recording in progress' },
+    recording_failed: { label: 'Recording Failed', color: 'var(--accent-crimson)', title: 'Audio capture stream failed' },
+    permission_denied: { label: 'Permission Denied', color: 'var(--accent-amber)', title: 'Microphone permission blocked in Windows Settings' },
+    no_device: { label: 'No Device Detected', color: 'var(--accent-amber)', title: 'No physical audio input devices detected' },
+    ready: { label: 'Device Available', color: 'var(--accent-cyan)', title: 'Local microphone capture armed and ready' }
+  }
+
+  const micConfig = micBadgeConfig[micStatus] || micBadgeConfig.ready
 
   // 7. Avatar indicator
   const avatarMode = characterTelemetry?.mode || 'procedural'
@@ -61,9 +106,9 @@ export const SystemStatusBadge: React.FC = () => {
         ? '3D Procedural'
         : 'CSS Fallback'
 
-  // 8. WebGL indicator
+  // 8. WebGL indicator (Strict context loss check: Only flag Context Lost on actual loss event)
   const webglOk = characterTelemetry?.webgl2Available ?? systemStatus.webglReady ?? false
-  const webglError = characterTelemetry?.rendererReady === false
+  const webglLost = characterTelemetry?.isContextLost === true || systemStatus.isContextLost === true
 
   // 9. GPU indicator
   const rawGpu = characterTelemetry?.gpuRenderer || systemStatus.gpuName
@@ -89,7 +134,7 @@ export const SystemStatusBadge: React.FC = () => {
       {/* 1. Backend Status */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-        title="Local Python Agent Service (http://127.0.0.1:8000/api/health)"
+        title={systemStatus.errorMessage || 'Local Python Agent Service (http://127.0.0.1:8000/api/health)'}
       >
         <span
           style={{
@@ -115,7 +160,7 @@ export const SystemStatusBadge: React.FC = () => {
             fontWeight: 600
           }}
         >
-          {backendReady ? 'Ready' : backendStarting ? 'Starting...' : 'Offline'}
+          {backendReady ? 'Ready' : backendStarting ? 'Starting...' : 'Stopped'}
         </span>
       </div>
 
@@ -147,13 +192,34 @@ export const SystemStatusBadge: React.FC = () => {
       {/* 3. AI Model */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-        title={`Configured Model: ${settings.modelName} ${modelVerified ? '(Verified & Loaded)' : modelNeedPull ? '(Need Pull)' : ''}`}
+        title={
+          modelVerified
+            ? `Active Model '${systemStatus.activeModel}' verified in local Ollama`
+            : modelNeedPull
+              ? `Model '${systemStatus.activeModel}' requires pulling: ollama pull ${systemStatus.activeModel}`
+              : `Configured Model: ${systemStatus.activeModel}`
+        }
       >
-        <Cpu style={{ width: '12px', height: '12px', color: 'var(--accent-violet)' }} />
-        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{settings.modelName}</span>
-        {modelVerified && <CheckCircle2 style={{ width: '11px', height: '11px', color: 'var(--accent-green)' }} />}
-        {modelNeedPull && (
-          <span style={{ color: 'var(--accent-amber)', fontSize: '10px', fontWeight: 600 }}>(Need Pull)</span>
+        <Cpu style={{ width: '12px', height: '12px', color: 'var(--accent-purple)' }} />
+        <span>Model:</span>
+        <span
+          style={{
+            color: modelVerified
+              ? 'var(--accent-purple)'
+              : modelNeedPull
+                ? 'var(--accent-amber)'
+                : 'var(--text-muted)',
+            fontWeight: 600
+          }}
+        >
+          {systemStatus.activeModel || 'qwen3.5:4b'}
+        </span>
+        {modelVerified && (
+          <span title="Model verified ready in local repository" style={{ display: 'inline-flex' }}>
+            <CheckCircle2
+              style={{ width: '11px', height: '11px', color: 'var(--accent-green)' }}
+            />
+          </span>
         )}
       </div>
 
@@ -165,7 +231,7 @@ export const SystemStatusBadge: React.FC = () => {
         title={
           sttAvailable
             ? 'Local faster-whisper Speech Recognition Ready'
-            : systemStatus.voiceEngineStatus?.stt?.error || 'Local faster-whisper STT Standby'
+            : systemStatus.voiceEngineStatus?.stt?.error || 'Local faster-whisper STT'
         }
       >
         <Mic
@@ -186,7 +252,13 @@ export const SystemStatusBadge: React.FC = () => {
             fontWeight: sttAvailable ? 600 : 400
           }}
         >
-          {sttAvailable ? 'faster-whisper' : sttChecking ? 'Checking...' : 'Standby'}
+          {sttAvailable
+            ? 'faster-whisper'
+            : sttChecking
+              ? 'Checking...'
+              : backendReady
+                ? 'Unavailable'
+                : 'Offline'}
         </span>
       </div>
 
@@ -195,29 +267,21 @@ export const SystemStatusBadge: React.FC = () => {
       {/* 5. TTS */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-        title={
-          ttsAvailable
-            ? 'Local Piper Text-to-Speech Ready'
-            : systemStatus.voiceEngineStatus?.tts?.error || 'Local Piper TTS Standby'
-        }
+        title={ttsTooltip}
       >
-        {ttsAvailable ? (
-          <Volume2 style={{ width: '12px', height: '12px', color: 'var(--accent-green)' }} />
+        {ttsFullReady ? (
+          <Volume2 style={{ width: '12px', height: '12px', color: ttsColor }} />
         ) : (
-          <VolumeX style={{ width: '12px', height: '12px', color: 'var(--text-muted)' }} />
+          <VolumeX style={{ width: '12px', height: '12px', color: ttsColor }} />
         )}
         <span>TTS:</span>
         <span
           style={{
-            color: ttsAvailable
-              ? 'var(--accent-green)'
-              : ttsChecking
-                ? 'var(--accent-amber)'
-                : 'var(--text-muted)',
-            fontWeight: ttsAvailable ? 600 : 400
+            color: ttsColor,
+            fontWeight: ttsFullReady ? 600 : 400
           }}
         >
-          {ttsAvailable ? 'Piper TTS' : ttsChecking ? 'Checking...' : 'Standby'}
+          {ttsLabel}
         </span>
       </div>
 
@@ -226,31 +290,21 @@ export const SystemStatusBadge: React.FC = () => {
       {/* 6. Microphone Input */}
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-        title={
-          !settings.micEnabled
-            ? 'Microphone muted in AURA settings'
-            : !micHardwareOk
-              ? 'No audio input devices detected'
-              : 'Local Microphone capture ready'
-        }
+        title={micConfig.title}
       >
-        {micActive ? (
-          <Mic style={{ width: '12px', height: '12px', color: 'var(--accent-cyan)' }} />
+        {micStatus === 'muted' || micStatus === 'no_device' ? (
+          <MicOff style={{ width: '12px', height: '12px', color: micConfig.color }} />
         ) : (
-          <MicOff style={{ width: '12px', height: '12px', color: 'var(--accent-amber)' }} />
+          <Mic style={{ width: '12px', height: '12px', color: micConfig.color }} />
         )}
         <span>Mic:</span>
         <span
           style={{
-            color: micActive
-              ? 'var(--accent-cyan)'
-              : !settings.micEnabled
-                ? 'var(--text-muted)'
-                : 'var(--accent-amber)',
-            fontWeight: micActive ? 600 : 400
+            color: micConfig.color,
+            fontWeight: micStatus === 'ready' || micStatus === 'recording' ? 600 : 400
           }}
         >
-          {micActive ? 'Active' : !settings.micEnabled ? 'Muted' : 'No Input'}
+          {micConfig.label}
         </span>
       </div>
 
@@ -284,32 +338,32 @@ export const SystemStatusBadge: React.FC = () => {
       <div
         style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
         title={
-          webglError
-            ? 'WebGL Context Lost or Initialization Failed'
+          webglLost
+            ? 'WebGL graphics context was lost'
             : webglOk
-              ? 'WebGL2 Context Verified & Active'
-              : 'WebGL Context Checking...'
+              ? 'WebGL2 Graphics Acceleration Verified & Active'
+              : 'WebGL Context Standby'
         }
       >
         <Layers
           style={{
             width: '12px',
             height: '12px',
-            color: webglOk && !webglError ? 'var(--accent-green)' : 'var(--accent-amber)'
+            color: webglLost ? 'var(--accent-crimson)' : webglOk ? 'var(--accent-green)' : 'var(--text-muted)'
           }}
         />
         <span>WebGL:</span>
         <span
           style={{
-            color: webglError
+            color: webglLost
               ? 'var(--accent-crimson)'
               : webglOk
                 ? 'var(--accent-green)'
-                : 'var(--accent-amber)',
-            fontWeight: webglOk && !webglError ? 600 : 400
+                : 'var(--text-muted)',
+            fontWeight: webglOk && !webglLost ? 600 : 400
           }}
         >
-          {webglError ? 'Context Lost' : webglOk ? 'WebGL2' : 'Checking...'}
+          {webglLost ? 'Context Lost' : webglOk ? 'WebGL2' : 'Standby'}
         </span>
       </div>
 
