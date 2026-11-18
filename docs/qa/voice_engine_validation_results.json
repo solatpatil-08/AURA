@@ -20,7 +20,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Verified NotAllowedError and PermissionDeniedError user-friendly recovery prompts in useVoiceRecorder",
-      "duration_ms": 37.68,
+      "duration_ms": 0.97,
       "data": null
     },
     {
@@ -29,7 +29,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Target deviceId constraint pass-through verified for multi-microphone systems",
-      "duration_ms": 0.93,
+      "duration_ms": 0.17,
       "data": null
     },
     {
@@ -38,7 +38,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Verified 60s hard timeout both in desktop frontend timer and agent backend configuration",
-      "duration_ms": 0.14,
+      "duration_ms": 0.11,
       "data": null
     },
     {
@@ -64,12 +64,12 @@
       "test": "English Transcription (Normal Speed)",
       "passed": true,
       "manual_blocked": false,
-      "details": "Transcript: 'Hello Aura, how are you today?' | Lang: en | Audio Duration: 1.96s",
-      "duration_ms": 14011.45,
+      "details": "Transcript: 'Hello Aura, how are you today?' | Lang: en | Audio Duration: 1.97s",
+      "duration_ms": 5383.73,
       "data": {
         "transcript": "Hello Aura, how are you today?",
         "detected_lang": "en",
-        "duration": 1.962125
+        "duration": 1.97375
       }
     },
     {
@@ -77,10 +77,10 @@
       "test": "Hindi Language Support & Decoding",
       "passed": true,
       "manual_blocked": false,
-      "details": "Multilingual Base Model: True | 'hi' Mode Transcript: 'NAMEST ARA will come to our system.'",
-      "duration_ms": 3385.27,
+      "details": "Multilingual Base Model: True | 'hi' Mode Transcript: 'Namaste Aura, Welcome to our system.'",
+      "duration_ms": 703.5,
       "data": {
-        "transcript": "NAMEST ARA will come to our system.",
+        "transcript": "Namaste Aura, Welcome to our system.",
         "multilingual": true
       }
     },
@@ -89,11 +89,11 @@
       "test": "Long Technical Speech Transcription",
       "passed": true,
       "manual_blocked": false,
-      "details": "Transcript (161 chars): 'Artificial Intelligence is a branch of computer science focused on building smar...' | Duration: 9.11s",
-      "duration_ms": 5784.06,
+      "details": "Transcript (161 chars): 'Artificial Intelligence is a branch of computer science focused on building smar...' | Duration: 9.28s",
+      "duration_ms": 1485.54,
       "data": {
         "transcript": "Artificial Intelligence is a branch of computer science focused on building smart machines capable of performing tasks that typically require human intelligence.",
-        "duration": 9.113875
+        "duration": 9.276375
       }
     },
     {
@@ -101,10 +101,10 @@
       "test": "Background Noise Resilience (Gaussian)",
       "passed": true,
       "manual_blocked": false,
-      "details": "Transcript with injected white noise: 'system diagnostics are running smoothly.'",
-      "duration_ms": 4229.22,
+      "details": "Transcript with injected white noise: 'The system diagnostics are running smoothly.'",
+      "duration_ms": 1146.06,
       "data": {
-        "noisy_transcript": "system diagnostics are running smoothly."
+        "noisy_transcript": "The system diagnostics are running smoothly."
       }
     },
     {
@@ -113,7 +113,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Empty byte returns: '' (clean 0-char string without exception)",
-      "duration_ms": 0.61,
+      "duration_ms": 0.73,
       "data": null
     },
     {
@@ -122,7 +122,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Cleanly trapped: STTInvalidAudioError",
-      "duration_ms": 0.76,
+      "duration_ms": 0.45,
       "data": null
     },
     {
@@ -130,13 +130,13 @@
       "test": "End-to-End Voice Transcript to LLM Submission",
       "passed": true,
       "manual_blocked": false,
-      "details": "Spoken Transcript: 'What are the three primary primary colors?' -> AI Reply: 'The three primary colors are red, yellow, and blue for pigments, while red, green, and blue apply to light.'",
-      "duration_ms": 68472.94,
+      "details": "Spoken Transcript: 'What are the three primary primary colors?' -> AI Reply: 'The three primary colors are traditionally red, yellow, and blue for pigments, or red, green, and blue for light.'",
+      "duration_ms": 52732.81,
       "data": {
         "transcript": "What are the three primary primary colors?",
-        "ai_reply": "The three primary colors are red, yellow, and blue for pigments, while red, green, and blue apply to light.",
-        "stt_ms": 4865.5,
-        "llm_ms": 63607.4
+        "ai_reply": "The three primary colors are traditionally red, yellow, and blue for pigments, or red, green, and blue for light.",
+        "stt_ms": 1176.8,
+        "llm_ms": 51556.0
       }
     },
     {
@@ -144,10 +144,10 @@
       "test": "Speech WAV Audio Generation",
       "passed": true,
       "manual_blocked": false,
-      "details": "Generated 138796 bytes of WAV audio",
-      "duration_ms": 1100.36,
+      "details": "Generated 139308 bytes of WAV audio",
+      "duration_ms": 106.68,
       "data": {
-        "byte_count": 138796
+        "byte_count": 139308
       }
     },
     {
@@ -155,15 +155,15 @@
       "test": "WAV PCM Format & Header Conformance",
       "passed": true,
       "manual_blocked": false,
-      "details": "WAV Valid: True | Rate: 22050Hz | Channels: 1 (Mono) | Bit depth: 16-bit | Duration: 3.15s",
+      "details": "WAV Valid: True | Rate: 22050Hz | Channels: 1 (Mono) | Bit depth: 16-bit | Duration: 3.16s",
       "duration_ms": 0.05,
       "data": {
         "valid": true,
         "channels": 1,
         "sample_width": 2,
         "framerate": 22050,
-        "n_frames": 69376,
-        "duration_seconds": 3.15
+        "n_frames": 69632,
+        "duration_seconds": 3.16
       }
     },
     {
@@ -172,7 +172,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Cleaned text (44 chars): 'Here is the status: System operational! Docs'",
-      "duration_ms": 1.65,
+      "duration_ms": 0.55,
       "data": null
     },
     {
@@ -181,7 +181,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Cleanly trapped: TTSModelNotFoundError",
-      "duration_ms": 1.15,
+      "duration_ms": 0.9,
       "data": null
     },
     {
@@ -190,7 +190,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Cleanly caught: TTSInvalidTextError",
-      "duration_ms": 0.31,
+      "duration_ms": 0.85,
       "data": null
     },
     {
@@ -207,12 +207,12 @@
       "test": "Conversation 1: 'Hello AURA, how are you?'",
       "passed": true,
       "manual_blocked": false,
-      "details": "Spoken: 'Hello, Laura. How are you?' | Reply: 'Hi there! I'm doing great, though I think you might mean AURA instead ...' | Audio: 245292 bytes",
-      "duration_ms": 62771.58,
+      "details": "Spoken: 'Hello, Laura. How are you?' | Reply: 'Hello! I'm doing wonderfully, ready to chat with you anytime. How are ...' | Audio: 226348 bytes",
+      "duration_ms": 22395.34,
       "data": {
         "transcript": "Hello, Laura. How are you?",
-        "reply": "Hi there! I'm doing great, though I think you might mean AURA instead of Laura. How are things with you?",
-        "audio_bytes": 245292
+        "reply": "Hello! I'm doing wonderfully, ready to chat with you anytime. How are things going with you?",
+        "audio_bytes": 226348
       }
     },
     {
@@ -220,12 +220,12 @@
       "test": "Conversation 2: 'Explain what artificial intelligence is.'",
       "passed": true,
       "manual_blocked": false,
-      "details": "Spoken: 'explain what artificial intelligence is.' | Explanation: 'Artificial intelligence is technology that helps computers learn and a...' | Audio: 504364 bytes",
-      "duration_ms": 56132.03,
+      "details": "Spoken: 'Explain what artificial intelligence is.' | Explanation: 'Artificial intelligence is technology that allows computers to learn f...' | Audio: 762412 bytes",
+      "duration_ms": 19652.77,
       "data": {
-        "transcript": "explain what artificial intelligence is.",
-        "reply": "Artificial intelligence is technology that helps computers learn and act like humans. These smart systems use data to understand patterns and make decisions without being told exactly how to do every task.",
-        "audio_bytes": 504364
+        "transcript": "Explain what artificial intelligence is.",
+        "reply": "Artificial intelligence is technology that allows computers to learn from data and perform tasks that usually require human intelligence. In simple terms, it lets machines recognize patterns and make decisions on their own without being explicitly programmed for every specific situation.",
+        "audio_bytes": 762412
       }
     },
     {
@@ -233,8 +233,8 @@
       "test": "Conversation 3: 'Stop speaking' Playback Halting",
       "passed": true,
       "manual_blocked": false,
-      "details": "Recognized stop command: 'Top Speaking.'. Triggers stopSpeech() playback termination.",
-      "duration_ms": 4545.85,
+      "details": "Recognized stop command: 'Top Speaking'. Triggers stopSpeech() playback termination.",
+      "duration_ms": 1272.16,
       "data": null
     },
     {
@@ -243,7 +243,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Verified state machine handling: IDLE, LISTENING, TRANSCRIBING, THINKING, SPEAKING, CANCELLED",
-      "duration_ms": 37.9,
+      "duration_ms": 1.35,
       "data": null
     },
     {
@@ -252,7 +252,7 @@
       "passed": true,
       "manual_blocked": false,
       "details": "Verified VAD onSpeechStart detection immediately calls stopSpeech() to abort active speech audio",
-      "duration_ms": 1.02,
+      "duration_ms": 0.36,
       "data": null
     }
   ]
