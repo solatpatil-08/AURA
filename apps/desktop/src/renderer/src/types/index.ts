@@ -106,10 +106,20 @@ export interface VoiceEngineDetails {
   tts: {
     engine?: string
     available: boolean
+    model_available?: boolean
+    synthesis_ready?: boolean
     model_path?: string
     error?: string | null
   }
 }
+
+export type MicrophoneState =
+  | 'muted'
+  | 'no_device'
+  | 'permission_denied'
+  | 'ready'
+  | 'recording'
+  | 'recording_failed'
 
 export interface SystemStatus {
   ollama: 'connected' | 'offline' | 'checking'
@@ -121,9 +131,14 @@ export interface SystemStatus {
   micReady: boolean
   micHardwareAvailable?: boolean
   micPermission?: 'granted' | 'denied' | 'prompt'
+  micStatus?: MicrophoneState
   voiceOutputReady?: boolean
   voiceEngineStatus?: VoiceEngineDetails
+  ttsModelAvailable?: boolean
+  ttsSynthesisReady?: boolean
+  ttsPlaybackReady?: boolean
   webglReady?: boolean
+  isContextLost?: boolean
   gpuName?: string
 }
 
@@ -178,11 +193,12 @@ export interface CharacterTelemetry {
   }
   lipSyncMode?: string
   audioAmplitude?: number
-  // Hardware & Health Metrics (Phase 8)
+  // Hardware & Health Metrics
   gpuRenderer?: string
   gpuVendor?: string
   webgl2Available?: boolean
   rendererReady?: boolean
+  isContextLost?: boolean
   avatarVisible?: boolean
   contextLostCount?: number
 }

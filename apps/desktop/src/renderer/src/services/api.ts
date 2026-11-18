@@ -14,6 +14,8 @@ export interface VoiceStatusData {
   tts: {
     engine?: string
     available: boolean
+    model_available?: boolean
+    synthesis_ready?: boolean
     model_path?: string
     error?: string | null
   }
