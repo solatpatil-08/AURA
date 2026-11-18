@@ -125,6 +125,17 @@ class PiperTTSService(BaseTTSService):
         self._resolved_config_path: Optional[str] = None
         self._last_error: Optional[str] = None
 
+    def _get_search_dirs(self) -> List[Path]:
+        """Return candidate search directories for Piper models."""
+        return [
+            Path.cwd() / "models" / "piper",
+            Path(__file__).resolve().parents[2] / "models" / "piper",
+            Path(__file__).resolve().parents[3] / "models" / "piper",
+            Path(__file__).resolve().parents[4] / "models" / "piper",
+            Path.home() / ".local" / "share" / "piper",
+            Path("C:/Projects/AURA/models/piper"),
+        ]
+
     def _locate_voice_files(self) -> Tuple[Optional[str], Optional[str]]:
         """Search for valid Piper .onnx and companion .json config files."""
         # 1. If explicit path is configured, verify it (do not fallback)
@@ -141,13 +152,7 @@ class PiperTTSService(BaseTTSService):
             return None, None
 
         # 2. Check standard local model directories
-        search_dirs = [
-            Path.cwd() / "models" / "piper",
-            Path(__file__).resolve().parents[4] / "models" / "piper",
-            Path.home() / ".local" / "share" / "piper",
-        ]
-
-        for s_dir in search_dirs:
+        for s_dir in self._get_search_dirs():
             if s_dir.is_dir():
                 for onnx_file in s_dir.glob("*.onnx"):
                     cfg_file = Path(f"{onnx_file}.json")
@@ -161,16 +166,10 @@ class PiperTTSService(BaseTTSService):
 
     def list_available_voices(self) -> List[Dict[str, Any]]:
         """Discover all valid local Piper voice models."""
-        search_dirs = [
-            Path.cwd() / "models" / "piper",
-            Path(__file__).resolve().parents[4] / "models" / "piper",
-            Path.home() / ".local" / "share" / "piper",
-        ]
-
         voices: List[Dict[str, Any]] = []
         seen_paths = set()
 
-        for s_dir in search_dirs:
+        for s_dir in self._get_search_dirs():
             if not s_dir.is_dir():
                 continue
             for onnx_file in s_dir.glob("*.onnx"):
@@ -260,19 +259,31 @@ class PiperTTSService(BaseTTSService):
         return bool(model_path and config_path)
 
     def get_status(self) -> Dict[str, Any]:
-        """Return diagnostic status information."""
+        """Return diagnostic status information distinguishing model availability, synthesis readiness."""
         model_path, config_path = self._locate_voice_files()
-        available = bool(model_path and config_path)
+        model_available = bool(model_path and config_path)
+        synthesis_ready = self._voice is not None
+        if not synthesis_ready and model_available:
+            try:
+                self._load_voice()
+                synthesis_ready = True
+            except Exception as e:
+                synthesis_ready = False
+                logger.warning("Synthesis probe load failed: %s", e)
+
         voices = self.list_available_voices()
+        is_ready = model_available and synthesis_ready
         return {
             "engine": "piper-tts",
-            "available": available,
+            "available": is_ready,
+            "model_available": model_available,
+            "synthesis_ready": synthesis_ready,
             "model_path": model_path or self.configured_model_path,
             "config_path": config_path or self.configured_config_path,
             "use_cuda": self.use_cuda,
             "voice_count": len(voices),
             "available_voices": [v["name"] for v in voices],
-            "error": self._last_error if not available else None,
+            "error": self._last_error if not is_ready else None,
         }
 
     def _sync_synthesize(self, text: str) -> bytes:
