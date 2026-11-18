@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-16T20:13:11.406Z",
+  "timestamp": "2026-11-17T10:12:55.023Z",
   "systemProfile": {
     "platform": "win32",
     "integratedGpu": "Intel UHD Graphics",
@@ -20,7 +20,7 @@
       "testGroup": "GPU",
       "name": "WebGL2 Capability Diagnostics",
       "status": "PASSED",
-      "durationMs": 567,
+      "durationMs": 21,
       "details": {
         "webglVersion": "WebGL 2.0 (Mock Test Context)",
         "renderer": "Mock NVIDIA GeForce RTX 3050",
@@ -35,7 +35,7 @@
       "testGroup": "GPU",
       "name": "Dual-GPU Command Line Switches",
       "status": "PASSED",
-      "durationMs": 13,
+      "durationMs": 1,
       "details": {
         "switchesApplied": [
           "ignore-gpu-blocklist",
@@ -52,7 +52,7 @@
       "testGroup": "GPU",
       "name": "Defensive WebGL Prototype Patching",
       "status": "PASSED",
-      "durationMs": 8,
+      "durationMs": 2,
       "details": {
         "versionParameterType": "string",
         "precisionAvailable": true
@@ -63,7 +63,7 @@
       "testGroup": "THREE.JS",
       "name": "Isolated 7-Stage Pipeline",
       "status": "PASSED",
-      "durationMs": 1096,
+      "durationMs": 149,
       "details": {
         "stagesExecuted": [
           "A: WebGL2 Context Creation",
@@ -83,7 +83,7 @@
       "testGroup": "VRM",
       "name": "Model Binary Header & Integrity",
       "status": "PASSED",
-      "durationMs": 97,
+      "durationMs": 13,
       "details": {
         "filePath": "C:\\Projects\\AURA\\models\\vrm\\aura.vrm",
         "byteLength": 18308368,
@@ -96,7 +96,7 @@
       "testGroup": "VRM",
       "name": "Humanoid Bones & Expression Presets",
       "status": "PASSED",
-      "durationMs": 1214,
+      "durationMs": 114,
       "details": {
         "modelName": "AvatarSample_U",
         "author": "pixiv VRoid Project",
@@ -125,7 +125,7 @@
       "testGroup": "VRM",
       "name": "Buffer Validation & Rejection",
       "status": "PASSED",
-      "durationMs": 125,
+      "durationMs": 5,
       "details": {
         "validationPassed": true
       }
@@ -135,7 +135,7 @@
       "testGroup": "ANIMATION",
       "name": "State Machine & Lighting Palettes",
       "status": "PASSED",
-      "durationMs": 1284,
+      "durationMs": 101,
       "details": {
         "verifiedStates": [
           "idle",
@@ -155,7 +155,7 @@
       "testGroup": "ANIMATION",
       "name": "Idle Breathing & Procedural Blinking",
       "status": "PASSED",
-      "durationMs": 1432,
+      "durationMs": 259,
       "details": {
         "framesSimulated": 60,
         "status": "Continuous animation stable"
@@ -166,7 +166,7 @@
       "testGroup": "LIP_SYNC",
       "name": "Spectral Amplitude Analysis",
       "status": "PASSED",
-      "durationMs": 1455,
+      "durationMs": 126,
       "details": {
         "lipSyncMode": "amplitude-spectral",
         "measuredAmplitude": 0.23,
@@ -179,7 +179,7 @@
       "testGroup": "LIP_SYNC",
       "name": "Decay to Neutral & Detachment",
       "status": "PASSED",
-      "durationMs": 106,
+      "durationMs": 7,
       "details": {
         "status": "Smooth neutral decay verified without exception"
       }
@@ -189,7 +189,7 @@
       "testGroup": "PERFORMANCE",
       "name": "Conservative Graphics Settings",
       "status": "PASSED",
-      "durationMs": 52,
+      "durationMs": 5,
       "details": {
         "antialias": false,
         "preserveDrawingBuffer": false,
@@ -203,7 +203,7 @@
       "testGroup": "PERFORMANCE",
       "name": "Dynamic FPS Measurement",
       "status": "PASSED",
-      "durationMs": 23,
+      "durationMs": 5,
       "details": {
         "pausedFps": 0
       }
@@ -213,7 +213,7 @@
       "testGroup": "PERFORMANCE",
       "name": "prefers-reduced-motion Accessibility",
       "status": "PASSED",
-      "durationMs": 30,
+      "durationMs": 7,
       "details": {
         "accessibilityMotionScaling": "Verified (reduced motion scaling applied)"
       }
@@ -223,7 +223,7 @@
       "testGroup": "CONTEXT_RECOVERY",
       "name": "Context Loss Interception",
       "status": "PASSED",
-      "durationMs": 42,
+      "durationMs": 9,
       "details": {
         "defaultPrevented": true,
         "errorCategory": "context_lost",
@@ -235,7 +235,7 @@
       "testGroup": "CONTEXT_RECOVERY",
       "name": "Context Restoration Handling",
       "status": "PASSED",
-      "durationMs": 90,
+      "durationMs": 17,
       "details": {
         "restorationHandled": true
       }
@@ -245,7 +245,7 @@
       "testGroup": "CONTEXT_RECOVERY",
       "name": "Component Unmount & Resource Teardown",
       "status": "PASSED",
-      "durationMs": 31,
+      "durationMs": 9,
       "details": {
         "cleanDisposal": true
       }
@@ -255,7 +255,7 @@
       "testGroup": "FALLBACK",
       "name": "CSS/SVG Cybernetic Avatar",
       "status": "PASSED",
-      "durationMs": 1245,
+      "durationMs": 232,
       "details": {
         "renderedFallback": true,
         "webglIndependent": true,
@@ -267,7 +267,7 @@
       "testGroup": "FALLBACK",
       "name": "Interactive Recovery Button",
       "status": "PASSED",
-      "durationMs": 217,
+      "durationMs": 34,
       "details": {
         "retryTriggered": true
       }
@@ -277,7 +277,7 @@
       "testGroup": "FALLBACK",
       "name": "End-to-End Fallback State in AvatarStage",
       "status": "PASSED",
-      "durationMs": 378,
+      "durationMs": 57,
       "details": {
         "stageIntegrityPreserved": true
       }
