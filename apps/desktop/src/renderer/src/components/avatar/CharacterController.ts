@@ -62,14 +62,42 @@ export function verifyWebGL2Support(canvas: HTMLCanvasElement): WebGL2Verificati
   try {
     // Conservative WebGL2 settings: no MSAA (avoids msaa_is_slow & EGL version mismatch),
     // high-performance power preference (requests discrete NVIDIA RTX 3050 GPU)
-    const gl = canvas.getContext('webgl2', {
-      alpha: true,
-      antialias: false,
-      depth: true,
-      stencil: false,
-      powerPreference: 'high-performance',
-      preserveDrawingBuffer: false
-    })
+    let gl: WebGL2RenderingContext | null = null
+    try {
+      gl = canvas.getContext('webgl2', {
+        alpha: true,
+        antialias: false,
+        depth: true,
+        stencil: false,
+        powerPreference: 'high-performance',
+        preserveDrawingBuffer: false
+      })
+    } catch {
+      // Ignore discrete GPU EGL failure and fall through
+    }
+
+    if (!gl) {
+      try {
+        gl = canvas.getContext('webgl2', {
+          alpha: true,
+          antialias: false,
+          depth: true,
+          stencil: false,
+          powerPreference: 'default',
+          preserveDrawingBuffer: false
+        })
+      } catch {
+        // Fall through
+      }
+    }
+
+    if (!gl) {
+      try {
+        gl = canvas.getContext('webgl2')
+      } catch {
+        // Fall through
+      }
+    }
 
     if (!gl) {
       return {
@@ -772,7 +800,8 @@ export class CharacterController {
       contextLostCount: this.contextLostCount,
       avatarVisible: false,
       fps: 0,
-      rendererReady: false
+      rendererReady: false,
+      isContextLost: true
     })
   }
 
@@ -790,6 +819,10 @@ export class CharacterController {
 
     this.renderer = this.createRenderer()
     if (this.renderer) {
+      this.notifyTelemetry({
+        rendererReady: true,
+        isContextLost: false
+      })
       if (this.mode === 'vrm' && this.lastLoadedBuffer) {
         this.loadModelFromBuffer(this.lastLoadedBuffer, this.vrmMetaInfo?.title || 'Custom VRM').catch(() => {
           this.resetToProceduralFallback()
@@ -1152,6 +1185,7 @@ export class CharacterController {
       gpuVendor: this.activeGpuVendor,
       webgl2Available: !this.isContextLost && this.renderer !== null,
       rendererReady: this.renderer !== null && !this.isContextLost,
+      isContextLost: this.isContextLost,
       avatarVisible: this.avatarVisible,
       contextLostCount: this.contextLostCount,
       ...custom
